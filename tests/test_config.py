@@ -10,12 +10,13 @@ import piv2hdf
 __this_dir__ = pathlib.Path(__file__).parent
 
 
-class TestConfig(unittest.TestCase):
+def read_meta():
+    with open(__this_dir__ / "resources/meta.json") as f:
+        meta = json.load(f)
+    return meta
 
-    def read_meta(self):
-        with open(__this_dir__ / "resources/meta.json") as f:
-            meta = json.load(f)
-        return meta
+
+class TestConfig(unittest.TestCase):
 
     def test_contacts(self):
         contacts_bak = piv2hdf.contacts
@@ -78,7 +79,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cv, piv2hdf.get_config('convention'))
 
     def test_set_pivattrs(self):
-        meta = self.read_meta()
+        meta = read_meta()
         _ = piv2hdf.set_pivattrs(creator=meta["CREATOR"],
                                  piv_medium='air',
                                  camera_type='My Camera',
