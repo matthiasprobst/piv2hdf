@@ -1,0 +1,135 @@
+__name__: planar_piv
+__institution__: https://orcid.org/members/001G000001e5aUTIAY
+__contact__: https://orcid.org/0000-0001-8729-0482
+
+units:
+  target_method: create_dataset
+  validator: $units
+  description: The physical unit of the dataset. If dimensionless, the unit is ''.
+
+$contributorType:
+  - ContactPerson
+  - DataCollector
+  - DataCurator
+  - DataManager
+  - Distributor
+  - Editor
+  - HostingInstitution
+  - Other
+  - Producer
+  - ProjectLeader
+  - ProjectManager
+  - ProjectMember
+  - RegistrationAgency
+  - RegistrationAuthority
+  - RelatedPerson
+  - ResearchGroup
+  - RightsHolder
+  - Researcher
+  - Sponsor
+  - Supervisor
+  - WorkPackageLeader
+
+$personOrOrganization:
+  name: str
+  givenName: str=None
+  familyName: str=None
+  address: str=None
+  affiliation: str=None
+  email: str=None
+  id: str=None
+  role: contributorType=None
+
+contact:
+  validator: $personOrOrganization
+  description: Name and contact information of a person or organization that can handle requiries about the data over a long time period.
+  target_method: __init__
+  default_value: $NONE
+
+creator:
+  validator: $personOrOrganization
+  description: Name and affiliation of the author(s) of the data. These are the persons who created the data.
+  target_method: __init__
+  default_value: $EMPTY
+
+$sensor_type:
+  - CCD
+  - CMOS
+  - other
+
+$camera:
+  # general camera information
+  name: str
+  model: str
+  manufacturer: str
+  sensor_type: sensor_type # e.g. CCD, CMOS
+  serial_number: str=None
+  # sensor information:
+  sensor_width: float=None
+  sensor_height: float=None
+  pixel_width: float=None
+  pixel_height: float=None
+  bit_depth: int=None
+  exposure_time: float=None  # in seconds
+  # lens information:
+  f_number: float=None
+  focal_length: float=None
+  # other information:
+  comment: str=None # free comment
+
+camera:
+  validator: $camera
+  description: Information about the camera and objective used to record the data.
+  target_method: __init__
+  default_value: $NONE
+
+$pivmethod:
+  - single_pass
+  - multi_pass
+  - multi_grid
+
+$pivpeakmethod:
+  - Gauss3pt
+  - Gauss3x3
+  - Parabolic
+  - Centroid
+  - Whittaker
+  - NonLinGauss
+  - FitBlob
+  - FitRect
+  - CentroidBinarized
+
+# piv method: list of possible values
+piv_method:
+  validator: $pivmethod
+  description: PIV Evaluation method. Can be single_pass, multi_pass or multi_grid.
+  default_value: $NONE
+  target_method: create_group
+
+piv_peak_method:
+  validator: $pivpeakmethod
+  description: PIV Peak find method.
+  default_value: $None
+  target_method: create_group
+
+standard_name:
+  target_method: create_dataset
+  validator: $standard_name
+  requirements: units
+  description: Standard name of the dataset as defined in a respective standard name table. If not available or applicable, the long_name attribute must be given.
+  alternative_standard_attribute: long_name
+
+standard_name_table:
+  target_method: __init__
+  validator: $standard_name_table
+  default_value: relpath(planar_piv_reduced.yaml)
+  requirements:
+    - standard_name
+    - units
+  description: The standard name table regulating the usage of the attribute standard_name.
+
+long_name:
+  target_method: create_dataset
+  validator: $regex(^[a-zA-Z].*(?<!\s)$)
+  alternative_standard_attribute: standard_name
+  description: A comprehensive, non-regulated description of the dataset. If not set, the standard_name attribute must be given.

@@ -1,0 +1,15 @@
+ix: x_pixel_coordinate
+iy: y_pixel_coordinate
+flag: piv_flags
+flags: piv_flags
+piv_flag: piv_flags
+sig2noise: signal_to_noise_ratio
+time: time
+u: x_velocity
+v: y_velocity
+valid: validation_flag
+w: z_velocity
+x: x_coordinate
+y: y_coordinate
+z: z_coordinate
+mask: piv_mask

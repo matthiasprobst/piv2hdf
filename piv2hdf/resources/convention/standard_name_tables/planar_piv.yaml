@@ -1,0 +1,181 @@
+institution: Karlsruhe Institute of Technology, Institute of Thermal Turbomachinery (ITS)
+contact: https://orcid.org/0000-0001-8729-0482
+valid_characters: [ '^a-zA-Z0-9_' ]
+pattern: ^[0-9 ].*
+last_modified: 2023-07-18 09:05:38.112885+00:00
+version: 1.1.0
+standard_devices: [ ]
+standard_locations: [ ]
+standard_names:
+  correlation_coefficient:
+    description: The correlation coefficient is a measure for the quality of the PIV
+      evaluation. It is computed based on the cross-correlation of the interrogation
+      windows.
+    units: ''
+  first_peak_x_displacement:
+    description: Displacement is a vector quantity. X indicates the component in x-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the first peak of the cross-correlation function.
+    units: pixel
+  first_peak_y_displacement:
+    description: Displacement is a vector quantity. Y indicates the component in y-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the first peak of the cross-correlation function.
+    units: pixel
+  flag:
+    description: A flag indicates the processing status of a vector. It can be disabled,
+      active or processed in any other way by a post-processing step. The flag meaning
+      must be provided with the dataset. Recommendation for the flag meaning are 0-inactive,
+      1-active, 2-masked, 4-no result, 8-disabled, 16-filtered, 32-interpolated, 64-replaced,
+      128-manualedit. Combinations of the flags can be used by adding the values.
+      For example, 33 would mean that the vector is active and interpolated.
+    units: ''
+  image_particle_density:
+    description: Number of particle images per pixel. Equals the number of particles
+      divided by the image area.
+    units: 1/pixel
+  image_particle_diameter:
+    description: The diameter of an image particle.
+    units: pixel
+  inplane_velocity:
+    description: Velocity is a vector quantity. Without a prefix "x", "y" or "z" it
+      indicates the magnitute of the velocity vector. "inplane" indicates that the
+      velocity magnitude was computed based on the in-plane components only.
+    units: m/s
+  laser_sheet_thickness:
+    description: The width of the laser beam illuminating the seeding particles. The
+      width is defined
+    units: m
+  mean_seeding_particle_size:
+    description: The mean diameter of the seeding particles.
+    units: um
+  number_of_particles:
+    description: Number of seeding particles in the image or field of interest. See
+      also image_particle_density.
+    units: ''
+  piv_method:
+    description: The PIV method used to compute the velocity vectors. The method name
+      must be provided with the dataset. Examples are single pass, multi-pass or multi-grid.
+    units: ''
+  pulse_delay:
+    description: Time between two laser pulses.
+    units: s
+  raw_image:
+    description: The raw unprocessed PIV image as recorded by the used camera.
+    units: count
+  saturated_pixel_number:
+    description: Number of pixels in the field of interest that exceed the maximal
+      senor count.
+    units: ''
+  second_peak_x_displacement:
+    description: Displacement is a vector quantity. X indicates the component in x-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the second peak of the cross-correlation function.
+    units: pixel
+  second_peak_y_displacement:
+    description: Displacement is a vector quantity. Y indicates the component in y-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the second peak of the cross-correlation function.
+    units: pixel
+  seeding_material:
+    description: The type of particles used for seeding the flow, e.g. Di-ethyl-hexyl-sebacate
+      (DEHS).
+    units: ''
+  standard_deviation_of_image_particle_diameter:
+    alias: standard_deviation_of_image_particle_size
+    description: The standard deviation of the image particle diameter in the field
+      of interest.
+    units: pixel
+  third_peak_x_displacement:
+    description: Displacement is a vector quantity. X indicates the component in x-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the third peak of the cross-correlation function.
+    units: pixel
+  third_peak_y_displacement:
+    description: Displacement is a vector quantity. Y indicates the component in y-axis
+      direction. This component is an in-plane component. The displacement is computed
+      based on the third peak of the cross-correlation function.
+    units: pixel
+  time:
+    description: Recording time since start of recording.
+    units: s
+  piv_image_index:
+    description: Simple index of a PIV image. Starts at 1 and ends at the number of images N.
+    units: ''
+  velocity:
+    description: Velocity is a vector quantity. Without a prefix "x", "y" or "z" it
+      indicates the magnitute of the velocity vector. The magnitude is computed based
+      on all velocity components.
+    units: m/s
+  x_coordinate:
+    description: Coordinate in x-axis direction.
+    units: m
+  x_displacement:
+    description: Displacement is a vector quantity. X indicates the component in x-axis
+      direction. This component is an in-plane component.
+    units: pixel
+  x_final_interrogation_window_overlap_size:
+    alias: x_interrogation_window_overlap_size
+    description: Width of the final PIV interogation window overlap.
+    units: pixel
+  x_final_interrogation_window_size:
+    alias: x_interrogation_window_size
+    description: Width of the final PIV interogation window.
+    units: pixel
+  x_moving_frame_velocity:
+    description: Moving frame velocity is a vector quantity. X indicates the component
+      in x-axis direction. This component is an in-plane component. The velocity depicts
+      the velocity of the moving frame relative to the stationary frame.
+    units: m/s
+  x_pixel_coordinate:
+    description: Image coordinate in horizontal direction.
+    units: pixel
+  x_pixel_origin:
+    description: The pixel x (horizontal) location of the origin used for PIV evaluation
+    units: pixel
+  x_velocity:
+    description: Velocity is a vector quantity. X indicates the component in x-axis
+      direction. This component is an in-plane component.
+    units: m/s
+  y_coordinate:
+    description: Coordinate in y-axis direction.
+    units: m
+  y_displacement:
+    description: Displacement is a vector quantity. Y indicates the component in y-axis
+      direction. This component is an in-plane component.
+    units: pixel
+  y_final_interrogation_window_overlap_size:
+    alias: y_interrogation_window_overlap_size
+    description: Height of the final PIV interogation window overlap.
+    units: pixel
+  y_final_interrogation_window_size:
+    alias: y_interrogation_window_size
+    description: Height of the final PIV interogation window.
+    units: pixel
+  y_moving_frame_velocity:
+    description: Moving frame velocity is a vector quantity. Y indicates the component
+      in y-axis direction. This component is an in-plane component. The velocity depicts
+      the velocity of the moving frame relative to the stationary frame.
+    units: m/s
+  y_pixel_coordinate:
+    description: Image coordinate in vertical direction.
+    units: pixel
+  y_pixel_origin:
+    description: The pixel y (vertical) location of the origin used for PIV evaluation
+    units: pixel
+  y_velocity:
+    description: Velocity is a vector quantity. Y indicates the component in y-axis
+      direction. This component is an in-plane component.
+    units: m/s
+  z_coordinate:
+    description: Coordinate in z-axis direction.
+    units: m
+  z_mean_velocity:
+    description: Velocity is a vector quantity. Z indicates the component in z-axis
+      direction. Mean indicates that the average over all timesteps was taken. This
+      component is an in-plane component.
+    units: m/s
+  z_velocity:
+    description: Velocity is a vector quantity. Z indicates the component in z-axis
+      direction. This component is the out-of-plane component.
+    units: m/s
