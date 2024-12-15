@@ -13,7 +13,7 @@ __this_dir__ = pathlib.Path(__file__).parent
 class TestConfig(unittest.TestCase):
 
     def read_meta(self):
-        with open(__this_dir__ / "meta.json") as f:
+        with open(__this_dir__ / "resources/meta.json") as f:
             meta = json.load(f)
         return meta
 
