@@ -1,7 +1,7 @@
 # Comments = "Reynolds stresses (without density!)"
 # Original file name: E00A_reyn.dat
 # Creation date: Wed Jun 22 23:26:05 2022
-# Software: PIVTEC PIVview Module - C:/Users/da4323/bin/pivUtils_386/average.exe
+# Software: PIVTEC PIVview Module - /path/to/average.exe
 # Grid size: 31 horiz.nodes, 15 vert.nodes
 # GridUnit: [mm]
 # Velocity Unit: [m/s]

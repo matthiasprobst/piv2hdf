@@ -1,4 +1,5 @@
 import datetime
+import pathlib
 import unittest
 
 import h5py
@@ -10,6 +11,7 @@ from piv2hdf.config import get_config, set_config
 from piv2hdf.interface import PIVPlane
 from piv2hdf.time import TimeVectorWarning
 
+__this_dir__ = pathlib.Path(__file__).parent
 CREATOR = {
     'name': 'Matthias Probst',
     'id': 'https://orcid.org/0000-0001-8729-0482',
@@ -67,9 +69,8 @@ class TestPlane(unittest.TestCase):
 
     def test_singleplane_stereo_pivview(self):
         from piv2hdf.pivview import PIVViewStereoNcFile
-        import pathlib
 
-        stereo_plane_dir = pathlib.Path(r'H:\public\02_Software\piv2hdf_testdata\stereo\plane_09nc_files')
+        stereo_plane_dir = __this_dir__ / "resources/pivview/stereo/plane_01"
         if stereo_plane_dir.exists():
             PIVViewStereoNcFile.__parameter_cls__(stereo_plane_dir / 'plane.cfg')
 
@@ -77,7 +78,8 @@ class TestPlane(unittest.TestCase):
                 plane_directory=stereo_plane_dir,
                 time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                 pivfile=PIVViewStereoNcFile,
-                parameter=r'H:\public\02_Software\piv2hdf_testdata\stereo\plane_09nc_files\plane.cfg')
+                parameter=stereo_plane_dir / "plane.cfg"
+            )
 
             spiv_filename = plane_stereo.to_hdf(
                 piv_attributes={'creator': CREATOR, 'piv_medium': 'air'})
