@@ -44,6 +44,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: matthiasprobst/piv2hdf
           file: ./coverage.xml
       - uses: actions/cache@v3
         with:
