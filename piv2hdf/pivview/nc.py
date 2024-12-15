@@ -27,7 +27,8 @@ from ..utils import (is_time, read_translation_yaml_file, get_uint_type,
 
 __this_file__ = pathlib.Path(__file__).resolve()
 
-pivview_translation = read_translation_yaml_file(__this_file__.parent / 'pivview_translation.yaml')
+_RESOURCES = __this_file__.parent / '../resources'
+PIVVIEW_TRANSLATION = read_translation_yaml_file(_RESOURCES / 'pivview/pivview_translation.yaml')
 
 logger = logging.getLogger('x2hdf')
 
@@ -55,8 +56,8 @@ def _find_common_entries(dictionaries):
 def pivview_post(h5: h5tbx.File) -> None:
     """pivview post function. this is specific for a convention"""
     for name, ds in h5.items():
-        if name in pivview_translation:
-            ds.attrs['standard_name'] = pivview_translation[name]
+        if name in PIVVIEW_TRANSLATION:
+            ds.attrs['standard_name'] = PIVVIEW_TRANSLATION[name]
 
     def _update_fields(grp: h5tbx.Group):
         piv_params = grp.attrs.get(PIV_PARAMETER_ATTRS_NAME, None)

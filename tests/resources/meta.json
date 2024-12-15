@@ -1,0 +1,15 @@
+{
+  "CREATOR": {
+    "name": "Matthias Probst",
+    "id": "https://orcid.org/0000-0001-8729-0482",
+    "role": "Researcher"
+  },
+  "PIV_MEDIUM": "air",
+  "CAMERA": {
+    "name": "My Camera",
+    "model": "PixelFly",
+    "manufacturer": "PCO",
+    "sensor_type": "CCD",
+    "serial_number": "1234567890"
+  }
+}

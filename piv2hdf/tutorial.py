@@ -12,7 +12,7 @@ class PIVview:
     @staticmethod
     def get_parameter_file() -> pathlib.Path:
         """Return pivview parameter file"""
-        return user.TEST_DATA_DIRECTORY / 'piv_challenge1_E/piv_parameters.par'
+        return user.TEST_DATA_DIRECTORY / 'pivview/piv_parameters.par'
 
     @staticmethod
     def get_plane_directory() -> pathlib.Path:
