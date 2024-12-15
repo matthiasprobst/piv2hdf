@@ -4,7 +4,9 @@ import pathlib
 
 import appdirs
 
-USER_DIRECTORY = pathlib.Path(appdirs.user_data_dir('piv2hdf'))
+from ._version import __version__
+
+USER_DIRECTORY = pathlib.Path(appdirs.user_data_dir('piv2hdf', version=__version__))
 
 TEST_DATA_DIRECTORY = pathlib.Path(__file__).parent.parent / 'tests/resources'
 TEMPORARY_USER_DIRECTORY = USER_DIRECTORY / 'tmp'

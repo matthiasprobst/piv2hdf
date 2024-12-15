@@ -5,6 +5,8 @@ from typing import Tuple
 from . import user
 from .utils import generate_temporary_directory
 
+__this_dir__ = pathlib.Path(__file__).parent
+
 
 class PIVview:
     """PIVview tutorial class"""
@@ -12,12 +14,12 @@ class PIVview:
     @staticmethod
     def get_parameter_file() -> pathlib.Path:
         """Return pivview parameter file"""
-        return user.TEST_DATA_DIRECTORY / 'pivview/piv_parameters.par'
+        return user.TEST_DATA_DIRECTORY / 'pivview/piv_challenge1_E/piv_parameters.par'
 
     @staticmethod
     def get_plane_directory() -> pathlib.Path:
         """Return the path to the respective example PIV plane"""
-        return (user.TEST_DATA_DIRECTORY / 'piv_challenge1_E/').resolve()
+        return user.TEST_DATA_DIRECTORY / 'pivview/piv_challenge1_E'
 
     @staticmethod
     def get_multiplane_directories() -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
@@ -26,8 +28,7 @@ class PIVview:
         try:
             from netCDF4 import Dataset as ncDataset
         except ImportError:
-            raise ImportError('Package netCDF4 is not installed. Either install it '
-                              'separately or install the repository with pip install h5RDMtolbox [piv]')
+            raise ImportError('Package netCDF4 is not installed.')
 
         def _set_z_in_nc(nc_filename, z_val):
             with ncDataset(nc_filename, 'r+') as nc:
@@ -41,7 +42,7 @@ class PIVview:
                         coord_max[-1] = z_val
                         nc[k].setncattr('coord_max', coord_max)
 
-        src_dir = user.TEST_DATA_DIRECTORY / 'piv_challenge1_E/'
+        src_dir = user.TEST_DATA_DIRECTORY / 'pivview/piv_challenge1_E'
         nc_files = sorted(src_dir.glob('*[0-9].nc'))
         if len(nc_files) == 0:
             raise FileNotFoundError('No nc files found in piv_challenge1_E test data directory. Contact the developer.')
@@ -76,7 +77,7 @@ class PIVview:
     @staticmethod
     def get_snapshot_nc_files():
         """Return a list of sorted nc files"""
-        files = sorted((user.TEST_DATA_DIRECTORY / f'piv_challenge1_E/').glob('E00A*.nc'))
+        files = sorted((user.TEST_DATA_DIRECTORY / "pivview/piv_challenge1_E").glob('E00A*.nc'))
         if len(files) == 0:
             raise FileNotFoundError('No nc files found in piv_challenge1_E test data directory. Contact the developer.')
         return files
@@ -84,7 +85,7 @@ class PIVview:
     @staticmethod
     def get_avg_file() -> pathlib.Path:
         """Return the path to the avg.dat file"""
-        file = user.TEST_DATA_DIRECTORY.joinpath('piv_challenge1_E/avg.dat')
+        file = user.TEST_DATA_DIRECTORY / "pivview/piv_challenge1_E/avg.dat"
         if not file.exists():
             raise FileNotFoundError(
                 'No avg.dat file found in piv_challenge1_E test data directory. Contact the developer.')
@@ -93,32 +94,34 @@ class PIVview:
     @staticmethod
     def get_rms_file() -> pathlib.Path:
         """Return the path to the rms.dat file"""
-        file = user.TEST_DATA_DIRECTORY.joinpath('piv_challenge1_E/rms.dat')
+        file = user.TEST_DATA_DIRECTORY / "pivview/piv_challenge1_E/rms.dat"
         if not file.exists():
             raise FileNotFoundError(
                 'No rms.dat file found in piv_challenge1_E test data directory. Contact the developer.')
+        return file
 
     @staticmethod
     def get_reyn_file() -> pathlib.Path:
         """Return the path to the reyn.dat file"""
-        file = user.TEST_DATA_DIRECTORY.joinpath('piv_challenge1_E/reyn.dat')
+        file = user.TEST_DATA_DIRECTORY / "pivview/piv_challenge1_E/reyn.dat"
         if not file.exists():
             raise FileNotFoundError(
                 'No reyn.dat file found in piv_challenge1_E test data directory. Contact the developer.')
+        return file
 
 
 class OpenPIV:
     """OpenPIV tutorial class"""
 
     @staticmethod
-    def get_snapshot_txt_file():
+    def get_snapshot_txt_file() -> pathlib.Path:
         """Return snapshot piv result from ILA vortex"""
-        return user.TEST_DATA_DIRECTORY / f'openpiv/vortex.txt'
+        return user.TEST_DATA_DIRECTORY / "openpiv" / "vortex.txt"
 
     @staticmethod
-    def get_parameter_file():
+    def get_parameter_file() -> pathlib.Path:
         """Return openpiv parameters as file"""
-        return user.TEST_DATA_DIRECTORY / f'openpiv/openpiv.par'
+        return user.TEST_DATA_DIRECTORY / "openpiv" / "openpiv.par"
 
     @staticmethod
     def get_plane_directory() -> pathlib.Path:
