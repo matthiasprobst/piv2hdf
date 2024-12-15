@@ -103,7 +103,7 @@ def layoutvalidation(func: Callable) -> Callable:
     return validation_wrapper
 
 
-def scan_for_timeseries_nc_files(directory: pathlib.Path, suffix: str, prefix_pattern: None) -> List[pathlib.Path]:
+def scan_for_timeseries_files(directory: pathlib.Path, suffix: str, prefix_pattern: None) -> List[pathlib.Path]:
     """
     Scans for files in `directory` according to the `suffix` provided. With `prefix_pattern` the pattern can be
     specified. `prefix_pattern` and `suffix` are concatenated to form the final pattern, which is passed to
@@ -533,16 +533,8 @@ class PIVPlane(PIVConverter):
         The initialized `PIVPlane` object
         """
 
-        # if parameter is not None:
-        #     if isinstance(parameter, (str, pathlib.Path)):
-        #         parameter = PIVParameterInterface(parameter)
-        #     elif not isinstance(parameter, PIVParameterInterface):
-        #         raise TypeError('Argument "parameter" must be of type PIVParameterInterface, not '
-        #                         f'{type(parameter)}.')
-
         plane_directory = pathlib.Path(plane_directory)
-        # TODO rename: scan_for_timeseries_nc_files. There should be no "nc" in it
-        found_snapshot_files = scan_for_timeseries_nc_files(plane_directory,
+        found_snapshot_files = scan_for_timeseries_files(plane_directory,
                                                             pivfile.suffix,
                                                             prefix_pattern=prefix_pattern)
 
