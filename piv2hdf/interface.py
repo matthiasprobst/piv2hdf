@@ -5,7 +5,7 @@ import os
 import pathlib
 import warnings
 from functools import wraps
-from typing import List, Union, Dict, Tuple, Callable
+from typing import List, Union, Dict, Tuple, Callable, Type
 
 import h5py
 import h5rdmtoolbox as h5tbx
@@ -72,8 +72,6 @@ def layoutvalidation(func: Callable) -> Callable:
     def validation_wrapper(*args, **kwargs):
         """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
         hdf_filename = func(*args, **kwargs)
-
-        config = get_config()
 
         # checking standard attributes:
 
@@ -455,7 +453,7 @@ class PIVPlane(PIVConverter):
                                     f'not type {type(time_info[0])}')
                 # build time vector (rel and abs)
                 rel_time = np.linspace(0, (n - 1) / meas_frequency, n)
-                abs_time = [recording_start_dtime + datetime.timedelta(seconds=rel_time[i]) for i in range(n)]
+                abs_time = [recording_start_dtime + datetime.timedelta(seconds=float(rel_time[i])) for i in range(n)]
             else:
                 if not all(isinstance(r, datetime.datetime) for r in time_info):
                     raise TypeError('Expecting type datetime for all items of parameter time_info[0]')
@@ -498,7 +496,7 @@ class PIVPlane(PIVConverter):
     @staticmethod
     def from_folder(plane_directory: Union[str, pathlib.Path],
                     time_info: Union[Tuple[datetime.datetime, float], List[datetime.datetime]],
-                    pivfile: PIVFile,
+                    pivfile: Type[PIVFile],
                     parameter: Union[PIVParameterInterface, str, pathlib.Path] = None,
                     n: int = -1,
                     prefix_pattern='*[0-9]'):
@@ -535,8 +533,8 @@ class PIVPlane(PIVConverter):
 
         plane_directory = pathlib.Path(plane_directory)
         found_snapshot_files = scan_for_timeseries_files(plane_directory,
-                                                            pivfile.suffix,
-                                                            prefix_pattern=prefix_pattern)
+                                                         pivfile.suffix,
+                                                         prefix_pattern=prefix_pattern)
 
         n_files = len(found_snapshot_files)
         logger.debug(f'Found {n_files} snapshot files here: {plane_directory.absolute()}')
@@ -1074,7 +1072,7 @@ class PIVMultiPlane(PIVConverter):
     @staticmethod
     def from_folders(plane_directories: Union[List[str], List[pathlib.Path]],
                      time_infos: List[Union[Tuple[datetime.datetime, float], List[datetime.datetime]]],
-                     pivfile: "PIVFile",
+                     pivfile: Type[PIVFile],
                      n: int = -1) -> "PIVMultiPlane":
         """init PIVPlane from multiple folders
 
