@@ -13,7 +13,6 @@ CONFIG = dict(
     convention='planar_piv',
     take_min_nt=True,  # False will fill datasets up with np.NA
     raise_layout_validation_error=True,
-    validate_layout=True,
     dtypes={'x': 'float32',
             'y': 'float32',
             'z': 'float32',

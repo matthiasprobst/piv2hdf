@@ -98,37 +98,21 @@ def layoutvalidation(func: Callable) -> Callable:
                     snt = h5.standard_name_table
                     snt.check_hdf_group(h5)
 
-        if config['validate_layout']:
-            warnings.warn('Currently not implemented. Note to me: Convention checks itself already',
-                          DeprecationWarning)
-            if False:
-                import piv_convention as pc
-                pc.PIVLayout.validate(hdf_filename)
-                if not pc.PIVLayout.is_validated:
-                    error_msg = f'Validation of {hdf_filename} failed (#fails={pc.PIVLayout.fails}). See report below:'
-                    for fv in pc.PIVLayout.get_failed_validations():
-                        error_msg += f'\n\t{fv}'
-                    if config['raise_layout_validation_error']:
-                        raise LayoutValidationError(error_msg)
-                    else:
-                        warnings.warn(error_msg, LayoutValidationWarning)
-
         return hdf_filename
 
     return validation_wrapper
 
 
-def scan_for_timeseries_nc_files(folder_path: pathlib.Path, suffix: str, prefix_pattern: None) -> List[pathlib.Path]:
+def scan_for_timeseries_nc_files(directory: pathlib.Path, suffix: str, prefix_pattern: None) -> List[pathlib.Path]:
     """
-    Scans for nc files (extension '.nc') in folder. Omits all files that do not end with numeric character [0-9]
-    or end with [0-9] and a single character.
+    Scans for files in `directory` according to the `suffix` provided. With `prefix_pattern` the pattern can be
+    specified. `prefix_pattern` and `suffix` are concatenated to form the final pattern, which is passed to
+    `pathlib.Path.glob()`. The result is a list of files sorted by name.
     """
     if prefix_pattern is None:
         prefix_pattern = '*'
-    logger.debug(f'scanning for files with pattern {prefix_pattern}{suffix} in {folder_path}')
-    # list_of_files = sorted(folder_path.glob(f'*[0-9]?{suffix}'))
-    list_of_files = sorted(folder_path.glob(f'{prefix_pattern}{suffix}'))
-    # if len(list_of_files) > 0:
+    logger.debug(f'Scanning for files with pattern {prefix_pattern}{suffix} in {directory}')
+    list_of_files = sorted(directory.glob(f'{prefix_pattern}{suffix}'))
     return list_of_files
 
 
@@ -613,6 +597,8 @@ class PIVPlane(PIVConverter):
 
         if z is not None:
             data['z'], z_units = parse_z(z)
+        else:
+            z_units = None
         mandatory_keys = ('x', 'y', 'z', 'ix', 'iy', 'u', 'v', 'reltime')
         for mkey in mandatory_keys:
             if mkey not in data.keys():
@@ -673,7 +659,7 @@ class PIVPlane(PIVConverter):
 
             # write all other dataset to file:
             logger.debug('Writing abs time vector')
-            ds_rec_dtime = create_recording_datetime_dataset(h5main, self.abs_time_vector, name='time')
+            ds_rec_dtime = create_recording_datetime_dataset(h5main, list(self.abs_time_vector), name='time')
             ds_rec_dtime.make_scale()
             ds_imgidx = h5main.create_dataset(IMAGE_INDEX, data=self.IMAGE_INDEX,
                                               attrs=dict(units='',
@@ -745,35 +731,35 @@ class PIVMultiPlane(PIVConverter):
     def __getitem__(self, item):
         return self.list_of_piv_folder[item]
 
-    def __init__(self, list_of_piv_folder: List[List[PIVFile]], ):
+    def __init__(self, list_of_piv_planes: List[PIVPlane], ):
         super().__init__()
-        if not isinstance(list_of_piv_folder, (tuple, list)):
+        if not isinstance(list_of_piv_planes, (tuple, list)):
             raise TypeError(
-                f'Expecting a lists of list of {PIVFile.__class__} objects but got {type(list_of_piv_folder)}')
-        for i, piv_folder in enumerate(list_of_piv_folder):
+                f'Expecting a lists of list of {PIVPlane.__class__} objects but got {type(list_of_piv_planes)}')
+        for i, piv_folder in enumerate(list_of_piv_planes):
             if len(piv_folder) == 0:
                 raise ValueError(f'Plane number {i} is empty. Cannot proceed.')
 
-        self.list_of_piv_folder = list_of_piv_folder
+        self.list_of_piv_planes = list_of_piv_planes
         pivfile_types = []
-        ref_type = type(list_of_piv_folder[0].list_of_piv_files[0])
-        for folder in list_of_piv_folder:
+        ref_type = type(list_of_piv_planes[0].list_of_piv_files[0])
+        for folder in list_of_piv_planes:
             pivfile_types.append(all(isinstance(f, ref_type) for f in folder.list_of_piv_files))
         if not all(pivfile_types):
             warnings.warn('The provided PIVFile objects are not all from the same class which may cause problems '
                           'in the process of converting them to HDF file(s).', UserWarning)
 
     def __len__(self):
-        return len(self.list_of_piv_folder)
+        return len(self.list_of_piv_planes)
 
     def __repr__(self):
         out = f'<{self.__class__.__name__} of {self.__len__()} planes:\n\t'
-        out += '\n\t'.join([p.__repr__() for p in self.list_of_piv_folder])
+        out += '\n\t'.join([p.__repr__() for p in self.list_of_piv_planes])
         out += '\n>'
         return out
 
     def __get_post_func__(self):
-        return self.list_of_piv_folder[0].__get_post_func__()
+        return self.list_of_piv_planes[0].__get_post_func__()
 
     @staticmethod
     def merge_planes(*,
@@ -1129,7 +1115,7 @@ class PIVMultiPlane(PIVConverter):
         title = kwargs.pop('title', DEFAULT_MPLANE_TITLE)
 
         # if the time vectors are known, check if planes can be merged!
-        t_list = [plane.rel_time_vector for plane in self.list_of_piv_folder]
+        t_list = [plane.rel_time_vector for plane in self.list_of_piv_planes]
         nt_list = [len(t) for t in t_list]
         equal_length = np.all([nt_list[0] == nt for nt in nt_list[1:]])
         # if not equal_length:
@@ -1161,19 +1147,19 @@ class PIVMultiPlane(PIVConverter):
             raise ValueError('Time vectors are not close enough to be merged! Process each plane separately.')
 
         if hdf_filename is None:
-            snapshot0_filename = self.list_of_piv_folder[0].list_of_piv_files[0].filename
+            snapshot0_filename = self.list_of_piv_planes[0].list_of_piv_files[0].filename
             name = f'{snapshot0_filename.parent.parent}.hdf'
             hdf_filename = snapshot0_filename.parent.parent / name
 
         # get data from first snapshot to prepare the HDF5 file
-        nplanes = len(self.list_of_piv_folder)
+        nplanes = len(self.list_of_piv_planes)
         if z is None:
             z = [None, ] * nplanes
         plane_hdf_files = [plane.__to_hdf__(generate_temporary_filename(suffix='_plane.hdf'),
                                             z=_z,
                                             iplane=iplane + 1,
                                             nplanes=nplanes) for (iplane, plane), _z
-                           in zip(enumerate(self.list_of_piv_folder), z)]
+                           in zip(enumerate(self.list_of_piv_planes), z)]
         hdf_filename = self.merge_planes(hdf_filenames=plane_hdf_files,
                                          target_hdf_filename=hdf_filename,
                                          title=title)
