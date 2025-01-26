@@ -312,7 +312,7 @@ class PIVFile(abc.ABC):
     def to_hdf(self,
                hdf_filename: pathlib.Path,
                relative_time: float,
-               recording_dtime: Union[datetime, List[datetime]],
+               recording_dtime: Union[datetime.datetime, List[datetime.datetime]],
                z: Union[str, float, None] = None,
                **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
