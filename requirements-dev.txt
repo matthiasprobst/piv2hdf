@@ -1,4 +1,5 @@
 -e .
 -r requirements.txt
+lvpyio
 pytest>=7.1.2
 pytest-cov
