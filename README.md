@@ -21,7 +21,7 @@ pip install -e git+https://github.com/matthiasprobst/piv2hdf
 ## TL;DR
 
 Examples are provided as Jupyter Notebooks in the [examples/](./examples) directory:
-- Converting [snapshot data](./examples/01_snapshot.ipynb) 
+- Converting [snapshot data](./examples/01_snapshot_pivview.ipynb) 
 
 ## Introduction and Documentation
 

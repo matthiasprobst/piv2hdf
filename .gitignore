@@ -165,3 +165,5 @@ cython_debug/
 tests/resources/pivview/piv_challenge1_E/piv_challenge1_E.hdf
 tests/resources/pivview/piv_challenge1_E/E00A1.hdf
 tests/resources/openpiv/vortex.hdf
+tests/resources/davis/dtau04.0/B00001.hdf
+tests/resources/davis/dtau04.0/B00002.hdf

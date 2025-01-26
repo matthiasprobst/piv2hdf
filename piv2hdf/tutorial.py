@@ -1,6 +1,6 @@
 import pathlib
 import shutil
-from typing import Tuple
+from typing import Tuple, List
 
 from . import user
 from .utils import generate_temporary_directory
@@ -159,3 +159,17 @@ class OpenPIV:
         shutil.copy2(parameter_filename, plane2 / parameter_filename.name)
         shutil.copy2(parameter_filename, plane3 / parameter_filename.name)
         return plane1, plane2, plane3
+
+
+class Davis:
+    """LaVision Davis tutorial data class"""
+
+    @staticmethod
+    def get_set_file() -> pathlib.Path:
+        """Return the path to the davis set file"""
+        return user.TEST_DATA_DIRECTORY / 'davis/dtau04.0.set'
+
+    @staticmethod
+    def get_vc7_files() -> List[pathlib.Path]:
+        """Return the path to the davis set file"""
+        return sorted((user.TEST_DATA_DIRECTORY / 'davis/dtau04.0/').glob('*.vc7'))

@@ -11,6 +11,8 @@ import numpy as np
 import piv2hdf
 from piv2hdf import openpiv, pivview, tutorial, PIVSnapshot
 from piv2hdf import set_loglevel, logger
+from piv2hdf.davis import VC7File
+from piv2hdf.davis.parameter import DavisParameterFile
 from piv2hdf.interface import PIVFile
 from piv2hdf.openpiv.user_operations import add_standard_name_operation as openpiv_add_standard_name_operation
 from piv2hdf.pivview.user_operations import add_standard_name_operation as pivview_add_standard_name_operation
@@ -32,6 +34,19 @@ def read_meta():
 
 
 class TestSnapshot(unittest.TestCase):
+
+    def test_davis_snapshot(self):
+        vc7_filename = tutorial.Davis.get_vc7_files()[1]
+        self.assertTrue(vc7_filename.exists())
+        param = DavisParameterFile(vc7_filename)
+        vc7file = VC7File(vc7_filename, parameter=param)
+        self.assertIsInstance(vc7file, PIVFile)
+        self.assertEqual(vc7file.filename, vc7_filename)
+        snapshot = PIVSnapshot(
+            piv_file=vc7file,
+            recording_dtime=datetime.datetime(2023, 1, 15, 13, 42, 2, 3)
+        )
+        snapshot.to_hdf()
 
     def test_pivview_snapshot(self):
         meta = read_meta()
