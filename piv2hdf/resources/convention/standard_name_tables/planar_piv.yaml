@@ -3,7 +3,7 @@ contact: https://orcid.org/0000-0001-8729-0482
 valid_characters: [ '^a-zA-Z0-9_' ]
 pattern: ^[0-9 ].*
 last_modified: 2023-07-18 09:05:38.112885+00:00
-version: 1.1.0
+version: 2.0.0
 standard_devices: [ ]
 standard_locations: [ ]
 standard_names:

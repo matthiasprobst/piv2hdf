@@ -25,7 +25,7 @@ class TestVersion(unittest.TestCase):
         with open(__this_dir__ / '../codemeta.json', 'r') as f:
             codemeta = json.loads(f.read())
 
-        assert codemeta['version'] == piv2hdf.__version__
+        self.assertEqual(codemeta['version'], piv2hdf.__version__)
 
     def test_citation_cff(self):
         """checking if the version in CITATION.cff is the same as the one of the piv2hdf"""

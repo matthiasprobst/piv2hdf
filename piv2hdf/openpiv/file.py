@@ -35,23 +35,23 @@ class OpenPIVResultData(PIVFile):
         pathlib.Path(_tmp_filename).unlink()
         self.data = data  # data like x,y,u,v,mask etc. as it directly comes from openpiv
 
-    def read(self, recording_time: float):
+    def read(self, recording_time: float, **kwargs):
         pass
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
-               config: Dict,
-               recording_time: float) -> pathlib.Path:
-        pass
+               relative_time: float,
+               recording_dtime: Union[datetime, List[datetime]],
+               z: Union[float, None] = None,
+               **kwargs) -> pathlib.Path:
+        raise NotImplementedError("Not yet implemented")
 
 
 class OpenPIVFile(PIVFile):
     """Open PIV File interface class
 
     Note, that .txt file from openPIV will not have all datasets, when ou use the openPIV.tools.save()
-    method. Instead use the save method provided here:
-    >>> import piv2hdf
-    >>> piv2hf.openpiv.save('my_file.txt', 'my_file.h5')
+    method.
     """
     suffix: str = '.txt'
     __parameter_cls__ = OpenPIVParameterFile
@@ -63,7 +63,7 @@ class OpenPIVFile(PIVFile):
                  **kwargs):
         super().__init__(*args, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs, )
 
-    def read(self, relative_time: float):
+    def read(self, relative_time: float, **kwargs):
         """Read data from file."""
         px_mm_scale = float(self._parameter.param_dict['scaling_factor'])  # pixel/mm
 
@@ -72,6 +72,7 @@ class OpenPIVFile(PIVFile):
         _ix = data["# x"].to_numpy()
         _iy = data["y"].to_numpy()
 
+        i = -1
         for i, x in enumerate(_ix[0:-1]):
             if (x - _ix[i + 1]) > 0:
                 break
@@ -133,7 +134,8 @@ class OpenPIVFile(PIVFile):
                hdf_filename: pathlib.Path,
                relative_time: float,
                recording_dtime: Optional[Union[datetime, List[datetime]]] = None,
-               z: Union[float, None] = None) -> pathlib.Path:
+               z: Union[float, None] = None,
+               **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
         data, root_attr, variable_attr = self.read(relative_time)
         if z is not None:
@@ -155,8 +157,8 @@ class OpenPIVFile(PIVFile):
             #
             # self.write_parameters(piv_param_grp)
 
-            if recording_dtime is not None:
-                ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
+            # if recording_dtime is not None:
+            #     ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
             var_list = []
             for varkey, vardata in data.items():
                 if vardata.ndim == 1:

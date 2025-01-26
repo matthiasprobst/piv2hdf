@@ -2,6 +2,7 @@ import json
 import os
 import pathlib
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Tuple, Union, List, Optional
 
@@ -121,7 +122,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
     -------
     piv_data_array_dict : dict
         Dictionary containing the arrays
-    ncRootAttributes : dict
+    nc_root_attributes : dict
         Attribute dictionary of root variables
     variable_attributes : dict
         Attribute dictionary of dataset variables
@@ -132,7 +133,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
     """
 
-    # TODO get rid of ncRootAttributes
+    # TODO get rid of nc_root_attributes
 
     def _build_meshgrid_xy(coord_min, coord_max, width, height):
         """generates coord meshgrid from velocity attribute stating min/max of coordinates x, y"""
@@ -152,7 +153,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
         root_attributes = {key: nc_rootgrp.getncattr(key) for key in
                            ('file_content', 'creation_date', 'software')}
-        ncRootAttributes = _process_pivview_root_attributes(
+        nc_root_attributes = _process_pivview_root_attributes(
             {attr: nc_rootgrp.getncattr(attr) for attr in nc_rootgrp.ncattrs()})
 
         variable_attributes = {}
@@ -160,13 +161,13 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
         # Variable information.
         nc_data_array_dict = nc_rootgrp.variables
 
-        if ncRootAttributes['outlier_interpolate'] and masking != 'slack':
+        if nc_root_attributes['outlier_interpolate'] and masking != 'slack':
             logger.debug('Outlier masking does not conform with pivview settings in nc '
-                         f'(outlier_interpolate={ncRootAttributes["outlier_interpolate"]} vs {masking}) - '
+                         f'(outlier_interpolate={nc_root_attributes["outlier_interpolate"]} vs {masking}) - '
                          f'averages might differ')
-        elif ncRootAttributes['outlier_try_other_peak'] and masking != 'sepeaks':
+        elif nc_root_attributes['outlier_try_other_peak'] and masking != 'sepeaks':
             logger.debug('Outlier masking does not conform with pivview settings in nc '
-                         f'(outlier_interpolate={ncRootAttributes["outlier_interpolate"]} vs {masking}) - '
+                         f'(outlier_interpolate={nc_root_attributes["outlier_interpolate"]} vs {masking}) - '
                          f'averages might differ')
 
         # processed
@@ -308,10 +309,13 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
             # the velocity dataset has the attribute coord_min and coord_max from which the coordinates can be derived:
             piv_data_array_dict['x'] = np.linspace(fr[0], to[0], w)
             piv_data_array_dict['y'] = np.linspace(fr[1], to[1], h)
-            variable_attributes['x'] = {'units': ncRootAttributes['length_conversion_units']}
-            variable_attributes['y'] = {'units': ncRootAttributes['length_conversion_units']}
-            assert px_fr[0] >= 0
-            assert px_fr[1] >= 0
+            variable_attributes['x'] = {'units': nc_root_attributes['length_conversion_units']}
+            variable_attributes['y'] = {'units': nc_root_attributes['length_conversion_units']}
+            if not px_fr[0] >= 0:
+                raise ValueError(f'Invalid pixel coordinate: {px_fr[0]}')
+            if not px_fr[1] >= 0:
+                raise ValueError(f'Invalid pixel coordinate: {px_fr[1]}')
+
             piv_data_array_dict['ix'] = np.linspace(px_fr[0], px_to[0], w).astype(get_uint_type(px_to[0]))
             piv_data_array_dict['iy'] = np.linspace(px_fr[1], px_to[1], h).astype(get_uint_type(px_to[0]))
             variable_attributes['ix'] = {'long_name': 'pixel x-location of vector',
@@ -320,14 +324,14 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
                                          'units': 'pixel'}
 
             # Z position information
-            z_unit = ncRootAttributes['length_conversion_units']  # default unit of z comes from file
+            z_unit = nc_root_attributes['length_conversion_units']  # default unit of z comes from file
             if isinstance(z_source, str):
                 if z_source == 'coord_min':
                     z = fr[2]
                 elif z_source == 'coord_max':
                     z = to[2]
                 elif z_source == 'origin_offset':
-                    z = ncRootAttributes['origin_offset_z']
+                    z = nc_root_attributes['origin_offset_z']
                 elif z_source == 'file':
                     try:
                         z = float(
@@ -388,16 +392,16 @@ class PIVViewNcFile(PIVFile):
 
     def read(self,
              relative_time: float,
-             *,
-             build_coord_datasets=True) -> Tuple[Dict, Dict, Dict]:
+             **kwargs) -> Tuple[Dict, Dict, Dict]:
         """reads and processes nc data
 
         Parameters
         ----------
         relative_time : float
             relative time of the snapshot read
-        build_coord_datasets : bool, optional
-            whether to build coordinate datasets, by default True
+        kwargs:
+            build_coord_datasets : bool, optional=True
+                whether to build coordinate datasets, by default True
 
         Returns
         -------
@@ -408,6 +412,8 @@ class PIVViewNcFile(PIVFile):
         nc_variable_attr : dict
             dictionary of variable attributes
         """
+
+        build_coord_datasets = kwargs.get("build_coord_datasets", True)
         from . import config as pivview_config
         masking = pivview_config['masking']
         interpolation = pivview_config['interpolation']
@@ -426,8 +432,9 @@ class PIVViewNcFile(PIVFile):
     def to_hdf(self,
                hdf_filename: pathlib.Path,
                relative_time: float,
-               recording_dtime: str,  # iso-format of datetime!
-               z: Union[str, float, None] = None) -> pathlib.Path:
+               recording_dtime: Union[datetime, List[datetime]],  # iso-format of datetime!
+               z: Union[str, float, None] = None,
+               **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
         nc_data, nc_root_attr, nc_variable_attr = self.read(relative_time=relative_time)
         if z is not None:

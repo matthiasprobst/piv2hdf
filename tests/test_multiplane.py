@@ -9,9 +9,9 @@ import numpy as np
 
 from piv2hdf import pivview, openpiv, tutorial
 from piv2hdf import set_loglevel
-from piv2hdf.interface import PIVPlane, PIVMultiPlane, useroperation
-from piv2hdf.pivview.user_operations import add_standard_name_operation
+from piv2hdf.interface import PIVPlane, PIVMultiPlane
 from piv2hdf.openpiv.user_operations import add_standard_name_operation as opernpiv_add_standard_name_operation
+from piv2hdf.pivview.user_operations import add_standard_name_operation
 
 NOW = datetime.datetime.now()
 
@@ -36,12 +36,16 @@ class TestMPlane(unittest.TestCase):
 
         # pass wrong folders which will raise an error in the process:
         with self.assertRaises(ValueError):
-            _ = PIVPlane.from_folder(plane_dirs_pivview[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile, user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
+            _ = PIVPlane.from_folder(plane_dirs_pivview[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile,
+                                     user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
         with self.assertRaises(ValueError):
-            _ = PIVPlane.from_folder(plane_dirs_openpiv[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile, user_defined_hdf5_operations=add_standard_name_operation)
+            _ = PIVPlane.from_folder(plane_dirs_openpiv[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile,
+                                     user_defined_hdf5_operations=add_standard_name_operation)
 
-        plane0 = PIVPlane.from_folder(plane_dirs_openpiv[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile, user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
-        plane1 = PIVPlane.from_folder(plane_dirs_pivview[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile, user_defined_hdf5_operations=add_standard_name_operation)
+        plane0 = PIVPlane.from_folder(plane_dirs_openpiv[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile,
+                                      user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
+        plane1 = PIVPlane.from_folder(plane_dirs_pivview[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile,
+                                      user_defined_hdf5_operations=add_standard_name_operation)
         with self.assertWarns(UserWarning):
             _ = PIVMultiPlane([plane0, plane1])
 
@@ -103,10 +107,14 @@ class TestMPlane(unittest.TestCase):
             self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
             for k, v in h5.items():
                 if isinstance(v, h5py.Dataset) and v.ndim == 4:
-                    assert v.dims[0][0] == h5['z']
-                    assert v.dims[1][0] == h5['reltime']
-                    assert v.dims[2][0] == h5['y']
-                    assert v.dims[3][0] == h5['x']
+                    if v.dims[0][0] != h5['z']:
+                        raise ValueError(f"Expected {v.dims[0][0]} == {h5['z']}")
+                    if v.dims[1][0] != h5['reltime']:
+                        raise ValueError(f"Expected {v.dims[1][0]} == {h5['reltime']}")
+                    if v.dims[2][0] != h5['y']:
+                        raise ValueError(f"Expected {v.dims[2][0]} == {h5['y']}")
+                    if v.dims[3][0] != h5['x']:
+                        raise ValueError(f"Expected {v.dims[3][0]} == {h5['x']}")
 
     def test_multi_piv_similar_nt_pivview(self):
         plane_dirs = tutorial.PIVview.get_multiplane_directories()[0:2]

@@ -38,7 +38,8 @@ def set_to_hdf(filename: pathlib.Path,
                use_standard_names: bool = True) -> pathlib.Path:
     """Convert a davis set file to hdf"""
     filename = pathlib.Path(filename)
-    assert filename.suffix == '.set'
+    if not filename.suffix == '.set':
+        raise ValueError(f'File {filename} is not a Davis set file')
 
     if use_standard_names:
         from . import standard_name_translation

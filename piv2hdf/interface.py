@@ -299,7 +299,7 @@ class PIVFile(abc.ABC):
     def read(
             self,
             relative_time: float,
-            build_coord_datasets=True
+            **kwargs
     ) -> Tuple[Dict, Dict, Dict]:
         """Read data from file.
         Except data, root_attr, variable_attr"""
@@ -312,7 +312,9 @@ class PIVFile(abc.ABC):
     def to_hdf(self,
                hdf_filename: pathlib.Path,
                relative_time: float,
-               z: Union[str, float, None] = None) -> pathlib.Path:
+               recording_dtime: Union[datetime, List[datetime]],
+               z: Union[str, float, None] = None,
+               **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
 
 
@@ -896,7 +898,9 @@ class PIVMultiPlane(PIVConverter):
 
         if not isinstance(rel_time, np.ndarray):
             rel_time = np.asarray(rel_time)
-        assert rel_time.ndim == 1
+        if not rel_time.ndim == 1:
+            raise ValueError(f'rel_time must be 1D array but is {rel_time.ndim}D')
+
         nt = rel_time.size
 
         with h5py.File(hdf_filenames[0]) as h5plane:
@@ -1104,9 +1108,12 @@ class PIVMultiPlane(PIVConverter):
 
         # sanity check:
         for piv_variable in piv_variables:
-            assert piv_variable.dims[0][0] == piv_variable.parent['reltime']
-            assert piv_variable.dims[1][0] == h5main['y']
-            assert piv_variable.dims[2][0] == h5main['x']
+            if piv_variable.dims[0][0] != piv_variable.parent['reltime']:
+                raise ValueError('Time dimension is not the first dimension of the dataset.')
+            if piv_variable.dims[1][0] != h5main['y']:
+                raise ValueError('y dimension is not the second dimension of the dataset.')
+            if piv_variable.dims[2][0] != h5main['x']:
+                raise ValueError('x dimension is not the third dimension of the dataset.')
 
     @staticmethod
     def from_folders(plane_directories: Union[List[str], List[pathlib.Path]],
