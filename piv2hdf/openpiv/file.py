@@ -12,41 +12,11 @@ from .const import *
 from .parameter import OpenPIVParameterFile
 from ..config import get_config
 from ..flags import flag_translation_dict, Flags
-from ..interface import PIVFile
+from ..interface import PIVFile, UserDefinedHDF5Operation
 from ..time import create_recording_datetime_dataset
-from ..utils import read_translation_yaml_file, get_uint_type, parse_z
+from ..utils import get_uint_type, parse_z
 
 __this_dir__ = pathlib.Path(__file__)
-
-RESOURCES_DIR = __this_dir__.parent / '../resources'
-TRANSLATION_EXT_DICT = read_translation_yaml_file(RESOURCES_DIR / 'openpiv/openpiv_ext_translation.yaml')
-
-from ..piv_params import PIV_PeakFitMethod, PIV_METHOD
-
-from ..interface import PIV_PARAMETER_GRP_NAME
-
-
-def update_standard_names(h5: h5tbx.File) -> None:
-    """openpiv post function"""
-    for name, ds in h5.items():
-        if name in TRANSLATION_EXT_DICT:
-            ds.attrs['standard_name'] = TRANSLATION_EXT_DICT[name]
-
-    def _update_fields(grp):
-        peak_method = grp.attrs['subpixel_method']
-        if peak_method == 'gaussian':
-            grp.attrs['piv_peak_method'] = PIV_PeakFitMethod(0).name
-
-        # piv_method
-        warnings.warn('piv_method is assumed to be multi grid but not determined!')
-        grp.attrs['piv_method'] = PIV_METHOD(2).name
-
-    if PIV_PARAMETER_GRP_NAME not in h5:
-        for param_grp in h5.find({'$basename': PIV_PARAMETER_GRP_NAME}, recursive=True):
-            _update_fields(param_grp)
-        return
-
-    return _update_fields(h5[PIV_PARAMETER_GRP_NAME])
 
 
 class OpenPIVResultData(PIVFile):
@@ -68,8 +38,10 @@ class OpenPIVResultData(PIVFile):
     def read(self, recording_time: float):
         pass
 
-    def to_hdf(self, hdf_filename: pathlib.Path,
-               config: Dict, recording_time: float) -> pathlib.Path:
+    def to_hdf(self,
+               hdf_filename: pathlib.Path,
+               config: Dict,
+               recording_time: float) -> pathlib.Path:
         pass
 
 
@@ -84,11 +56,12 @@ class OpenPIVFile(PIVFile):
     suffix: str = '.txt'
     __parameter_cls__ = OpenPIVParameterFile
 
-    def __init__(self, *args, **kwargs):
-        post_func = kwargs.get('post_func', None)
-        if post_func is None:
-            kwargs['post_func'] = update_standard_names
-        super().__init__(*args, **kwargs, )
+    def __init__(self,
+                 *args,
+                 user_defined_hdf5_operations: Optional[
+                     Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
+                 **kwargs):
+        super().__init__(*args, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs, )
 
     def read(self, relative_time: float):
         """Read data from file."""

@@ -4,7 +4,7 @@
   "license": "https://spdx.org/licenses/MIT",
   "codeRepository": "git+https://github.com/matthiasprobst/piv2hdf",
   "name": "piv2hdf",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Tool for the conversion of PIV measurements into HDF5 files",
   "applicationCategory": "Engineering",
   "programmingLanguage": [

@@ -18,6 +18,11 @@ or for development:
 pip install -e git+https://github.com/matthiasprobst/piv2hdf
 ```
 
+## TL;DR
+
+Examples are provided as Jupyter Notebooks in the [examples/](./examples) directory:
+- Converting [snapshot data](./examples/01_snapshot.ipynb) 
+
 ## Introduction and Documentation
 
 This package provides a simple interface to convert PIV data into HDF5 files. It is designed to be easily extendable for

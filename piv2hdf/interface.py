@@ -5,7 +5,7 @@ import os
 import pathlib
 import warnings
 from functools import wraps
-from typing import List, Union, Dict, Tuple, Callable, Type
+from typing import List, Union, Dict, Tuple, Callable, Type, Protocol, Optional, runtime_checkable
 
 import h5py
 import h5rdmtoolbox as h5tbx
@@ -33,19 +33,19 @@ class LayoutValidationWarning(Warning):
     pass
 
 
-def userpost(func: Callable) -> Callable:
+def useroperation(func: Callable) -> Callable:
     """decorates to_hdf method of Snapshot, Plane and Multi-Plane, that runs user code to
-    update meta data after the data has been written to the HDF5 file and before layout validation"""
+    update metadata after the data has been written to the HDF5 file and before layout validation"""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
         hdf_filename = func(*args, **kwargs)
-        post_caller = args[0].__get_post_func__()
-        if post_caller:
+        user_defined_hdf5_operations = args[0].__get_user_defined_hdf5_operations__()
+        if user_defined_hdf5_operations:
             with h5tbx.File(hdf_filename, 'r+') as h5:
-                for pc in post_caller:
-                    logger.debug(f'Calling postprocessing function {pc.__name__}...')
+                for pc in user_defined_hdf5_operations:
+                    logger.debug(f'Calling user defined hdf5 operation "{pc.__class__.__name__}"...')
                     pc(h5)
 
         for pp_func_name in get_config()['postproc']:
@@ -225,8 +225,19 @@ class PIVParameterInterface:
         return grp
 
 
+@runtime_checkable
+class UserDefinedHDF5Operation(Protocol):
+    """Protocol class enabling users to inject file manipulation after
+    HDF5 file conversion.
+    The only method which needs to be provided by the class is __call__.
+    """
+
+    def __call__(self, h5: h5tbx.File):
+        """This method manipulates the HDF5 file"""
+
+
 class PIVFile(abc.ABC):
-    """Abstract Interface class for PIV. This class must be inherited for a each PIV file type.
+    """Abstract Interface class for PIV. This class must be inherited for each PIV file type.
     Required methods are:
         - read(recording_dtime: float, build_coord_datasets: bool = True)
         - to_hdf(hdf_filename: pathlib.Path, recording_dtime: float)
@@ -237,7 +248,8 @@ class PIVFile(abc.ABC):
     def __init__(self,
                  filename: pathlib.Path,
                  parameter: Union[None, PIVParameterInterface, pathlib.Path] = None,
-                 post_func: Callable = None,
+                 user_defined_hdf5_operations: Optional[
+                     Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
                  **kwargs):
         filename = pathlib.Path(filename)
         if not filename.is_file():
@@ -257,14 +269,23 @@ class PIVFile(abc.ABC):
             logger.debug(f'Initializing parameter file from filename using class {self.__parameter_cls__.__name__}')
             self._parameter = self.__parameter_cls__(parameter)
 
-        if callable(post_func):
-            self.post_func = [post_func, ]
-        elif isinstance(post_func, (list, tuple)):
-            self.post_func = post_func
-        elif post_func is None:
-            self.post_func = []
-        else:
-            raise TypeError('post_func must be callable or list/tuple of callables or None')
+        if user_defined_hdf5_operations is None:
+            user_defined_hdf5_operations = []
+        if not isinstance(user_defined_hdf5_operations, (tuple, list)):
+            user_defined_hdf5_operations = [user_defined_hdf5_operations, ]
+        for udo in user_defined_hdf5_operations:
+            if not isinstance(udo, UserDefinedHDF5Operation):
+                raise TypeError(f'Expecting type {UserDefinedHDF5Operation.__name__}, not {type(udo)}')
+        self.user_defined_hdf5_operations = user_defined_hdf5_operations
+        #
+        # if callable(post_func):
+        #     self.post_func = [post_func, ]
+        # elif isinstance(post_func, (list, tuple)):
+        #     self.post_func = post_func
+        # elif post_func is None:
+        #     self.post_func = []
+        # else:
+        #     raise TypeError('post_func must be callable or list/tuple of callables or None')
 
     @property
     def parameter(self):
@@ -275,7 +296,11 @@ class PIVFile(abc.ABC):
         return f'<{self.__class__.__name__} ({self.filename})>'
 
     @abc.abstractmethod
-    def read(self, relative_time: float, build_coord_datasets=True) -> Tuple[Dict, Dict, Dict]:
+    def read(
+            self,
+            relative_time: float,
+            build_coord_datasets=True
+    ) -> Tuple[Dict, Dict, Dict]:
         """Read data from file.
         Except data, root_attr, variable_attr"""
 
@@ -301,15 +326,15 @@ class PIVConverter(abc.ABC):
         return f'<{self.__class__.__name__}>'
 
     @abc.abstractmethod
-    def __get_post_func__(self):
-        """return the post processing function"""
+    def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
+        """return the user defined hdf5 operation class"""
 
     @abc.abstractmethod
     def __to_hdf__(self, hdf_filename: pathlib.Path, **kwargs) -> pathlib.Path:
         """conversion method"""
 
     @layoutvalidation
-    @userpost
+    @useroperation
     def to_hdf(self,
                piv_attributes: Dict = None,  # e.g. piv_medium, contact
                hdf_filename: pathlib.Path = None,
@@ -376,8 +401,8 @@ class PIVSnapshot(PIVConverter):
     def __repr__(self):
         return f'<{self.__class__.__name__} of {self.piv_file.__repr__()} >'
 
-    def __get_post_func__(self):
-        return self.piv_file.post_func
+    def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
+        return self.piv_file.user_defined_hdf5_operations
 
     def __to_hdf__(self,
                    hdf_filename: pathlib.Path = None,
@@ -410,7 +435,8 @@ class PIVPlane(PIVConverter):
     __slots__ = 'list_of_piv_files', 'rel_time_vector'
     plane_coord_order = ('reltime', 'y', 'x')
 
-    def __init__(self, list_of_piv_files: List[PIVFile],
+    def __init__(self,
+                 list_of_piv_files: List[PIVFile],
                  time_info: Union[Tuple[datetime.datetime, float], List[datetime.datetime]]):
         """
 
@@ -478,8 +504,8 @@ class PIVPlane(PIVConverter):
             raise ValueError(f'Length of time vector ({len(self.rel_time_vector)}) is inconsistent with number of piv '
                              f'files: ({len(list_of_piv_files)})!')
 
-    def __get_post_func__(self):
-        return self.list_of_piv_files[0].post_func
+    def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
+        return self.list_of_piv_files[0].user_defined_hdf5_operations
 
     def __getitem__(self, item):
         return self.list_of_piv_files[item]
@@ -495,8 +521,12 @@ class PIVPlane(PIVConverter):
 
     @staticmethod
     def from_folder(plane_directory: Union[str, pathlib.Path],
+                    *,
                     time_info: Union[Tuple[datetime.datetime, float], List[datetime.datetime]],
                     pivfile: Type[PIVFile],
+                    user_defined_hdf5_operations: Optional[
+                        Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]
+                    ] = None,
                     parameter: Union[PIVParameterInterface, str, pathlib.Path] = None,
                     n: int = -1,
                     prefix_pattern='*[0-9]'):
@@ -514,6 +544,8 @@ class PIVPlane(PIVConverter):
             2. A list of datetime objects corresponding to the recording datetime of each image
         pivfile: PIVFile
             The piv file object associated to a software.
+        user_defined_hdf5_operations: Optional[Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]], default=None
+            User defined operations to be performed on the HDF5 file after the conversion.
         parameter: Union[PIVParameterInterface, str, pathlib.Path], optional=None
             If provided, this parameter interface will be used for all files.
             Default is None and searches for the parameter file associated to
@@ -549,9 +581,16 @@ class PIVPlane(PIVConverter):
 
         pbar = tqdm(found_snapshot_files, desc=f'Init {n_files} {pivfile.__name__} object')
         if parameter:
-            return PIVPlane([pivfile(nc, parameter=parameter) for nc in pbar], time_info)
+            return PIVPlane([
+                pivfile(
+                    nc,
+                    parameter=parameter,
+                    user_defined_hdf5_operations=user_defined_hdf5_operations
+                ) for nc in pbar],
+                time_info)
 
-        return PIVPlane([pivfile(nc) for nc in pbar], time_info, )
+        return PIVPlane([pivfile(nc, user_defined_hdf5_operations=user_defined_hdf5_operations) for nc in pbar],
+                        time_info, )
 
     def __to_hdf__(self,
                    hdf_filename: Union[str, pathlib.Path] = None,
@@ -748,8 +787,8 @@ class PIVMultiPlane(PIVConverter):
         out += '\n>'
         return out
 
-    def __get_post_func__(self):
-        return self.list_of_piv_planes[0].__get_post_func__()
+    def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
+        return self.list_of_piv_planes[0].__get_user_defined_hdf5_operations__()
 
     @staticmethod
     def merge_planes(*,
@@ -1071,8 +1110,12 @@ class PIVMultiPlane(PIVConverter):
 
     @staticmethod
     def from_folders(plane_directories: Union[List[str], List[pathlib.Path]],
+                     *,
                      time_infos: List[Union[Tuple[datetime.datetime, float], List[datetime.datetime]]],
                      pivfile: Type[PIVFile],
+                     user_defined_hdf5_operations: Optional[
+                         Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]
+                     ] = None,
                      n: int = -1) -> "PIVMultiPlane":
         """init PIVPlane from multiple folders
 
@@ -1089,7 +1132,11 @@ class PIVMultiPlane(PIVConverter):
         """
         if len(time_infos) != len(plane_directories):
             raise ValueError("Number of planes don't match the number of recording (time) information")
-        plane_objs = [PIVPlane.from_folder(pathlib.Path(d), time_info=time_info, pivfile=pivfile, n=n) for d, time_info
+        plane_objs = [PIVPlane.from_folder(pathlib.Path(d),
+                                           time_info=time_info,
+                                           pivfile=pivfile,
+                                           user_defined_hdf5_operations=user_defined_hdf5_operations,
+                                           n=n) for d, time_info
                       in
                       zip(plane_directories, time_infos)]
         return PIVMultiPlane(plane_objs)

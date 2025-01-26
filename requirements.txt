@@ -9,4 +9,6 @@ pyyaml>=6.0
 pint
 xarray
 netCDF4>=1.7.0
-h5rdmtoolbox>=1.6.0
+h5rdmtoolbox>=1.6.0,<=2.0.0
+ssnolib==1.3.0.2
+pivmetalib==1.1.2.0

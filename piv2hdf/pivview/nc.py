@@ -1,36 +1,28 @@
 import json
-import logging
 import os
 import pathlib
 import re
 from pathlib import Path
-from typing import Dict, Tuple, Union, Callable
+from typing import Dict, Tuple, Union, List, Optional
 
 import h5py
-import h5rdmtoolbox as h5tbx
 import numpy as np
 import xarray as xr
 from netCDF4 import Dataset as ncDataset
 from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import Delaunay
 
+from piv2hdf import logger
 from . import parameter as pivview_parameter
 from .const import *
 from .. import flags
 from ..config import get_config
-from ..interface import PIVFile
-from ..interface import PIV_PARAMETER_GRP_NAME, PIV_PARAMETER_ATTRS_NAME
-from ..piv_params import PIV_PeakFitMethod, PIV_METHOD
+from ..interface import PIVFile, UserDefinedHDF5Operation
 from ..time import create_recording_datetime_dataset
-from ..utils import (is_time, read_translation_yaml_file, get_uint_type,
+from ..utils import (is_time, get_uint_type,
                      parse_z)
 
 __this_file__ = pathlib.Path(__file__).resolve()
-
-_RESOURCES = __this_file__.parent / '../resources'
-PIVVIEW_TRANSLATION = read_translation_yaml_file(_RESOURCES / 'pivview/pivview_translation.yaml')
-
-logger = logging.getLogger('x2hdf')
 
 
 def _find_common_entries(dictionaries):
@@ -51,65 +43,6 @@ def _find_common_entries(dictionaries):
                     common_dict[key] = dictionaries[0][key]
 
     return common_dict
-
-
-def pivview_post(h5: h5tbx.File) -> None:
-    """pivview post function. this is specific for a convention"""
-    for name, ds in h5.items():
-        if name in PIVVIEW_TRANSLATION:
-            ds.attrs['standard_name'] = PIVVIEW_TRANSLATION[name]
-
-    def _update_fields(grp: h5tbx.Group):
-        piv_params = grp.attrs.get(PIV_PARAMETER_ATTRS_NAME, None)
-        if piv_params is None:
-            raise ValueError(f'No {PIV_PARAMETER_ATTRS_NAME} found in group {grp.name}')
-        grp.attrs['piv_method'] = PIV_METHOD(
-            piv_params['PIV processing parameters']['view0_piv_eval_method']).name
-        grp.attrs['piv_peak_method'] = PIV_PeakFitMethod(
-            piv_params['PIV processing parameters']['view0_piv_eval_peakfit_type']).name
-
-        # for ds in grp.find({'$basename': {'$regex': 'planetime_[0-9]+'}}):
-        #     ds.attrs['standard_name'] = pivview_translation['reltime']
-
-    if PIV_PARAMETER_GRP_NAME not in h5:
-        for param_grp in h5.find({'$basename': PIV_PARAMETER_GRP_NAME}, recursive=True, objfilter='group'):
-            _update_fields(h5[param_grp.name])
-        return
-    return _update_fields(h5[PIV_PARAMETER_GRP_NAME])
-
-    # # add `final_interrogation_window_size` to group "piv_parameters"
-    # piv_parameter_groups = h5.find({'$basename': 'piv_parameters'})
-    # if len(piv_parameter_groups) == 0:
-    #     piv_parameter_groups = [h5.create_group('piv_parameters'),]
-    #     # raise ValueError('No group named "piv_parameters" found in h5 file')
-    # is_root_group = piv_parameter_groups[0].parent.name == '/'
-    # if not is_root_group:
-    #     piv_params = [_g.attrs.piv_parameters for _g in piv_parameter_groups]
-    #     common_piv_params = _find_common_entries(piv_params)
-    #     h5.create_group(PIV_PARAMETER_GRP_NAME)
-    #     h5[PIV_PARAMETER_GRP_NAME].attrs['piv_parameters'] = common_piv_params
-    #     for _g in piv_parameter_groups:
-    #         _g.attrs['piv_parameters'] = {k: v for k, v in _g.attrs.piv_parameters.items() if k not in common_piv_params}
-    #
-    # piv_param_grp = h5[PIV_PARAMETER_GRP_NAME]
-    #
-    # piv_parameters = h5.attrs.piv_parameters
-    # piv_proc_param = piv_parameters['PIV processing parameters']
-    #
-    # h5.attrs['piv_method'] = PIV_METHOD(int(piv_proc_param['view0_piv_eval_method'])).name
-    #
-    # if piv_proc_param['view0_piv_eval_method'] in (0, 1, 2):  # SinglePass and MultiPass
-    #     x_final_iw_size, y_final_iw_size, _ = piv_proc_param['view0_piv_eval_samplesize']
-    #     x_final_iw_overlap_size, y_final_iw_overlap_size, _ = piv_proc_param['view0_piv_eval_samplestep']
-    # else:
-    #     raise ValueError(f'Unknown PIV evaluation method: {piv_proc_param["view0_piv_eval_method"]}')
-    # write_final_interrogation_window_size_to_h5_group(
-    #     piv_param_grp, (x_final_iw_size, y_final_iw_size)
-    # )
-    # write_final_interrogation_overlap_size_to_h5_group(
-    #     piv_param_grp,
-    #     (x_final_iw_overlap_size, y_final_iw_overlap_size)
-    # )
 
 
 def _process_pivview_root_attributes(root_attrs):
@@ -427,18 +360,31 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
 
 class PIVViewNcFile(PIVFile):
-    """Interface class to a PIVview netCDF4 file for a 2D recording (using .par parameter files)"""
+    """Interface class to a PIVview netCDF4 file for a 2D recording (using .par parameter files)
+
+    Parameters
+    ----------
+    filename : pathlib.Path
+        path to the nc file
+    parameter : Union[None, pivview_parameter.PIVviewParamFile, pathlib.Path], optional
+        path to the parameter file, by default None
+    user_defined_hdf5_operations : optional UserDefinedHDF5Operation or List[UserDefinedHDF5Operation]
+        Injects code that is executed after the HDF5 file is created, by default None
+    kwargs : dict
+        additional keyword arguments
+    """
     suffix: str = '.nc'
     __parameter_cls__ = pivview_parameter.PIVviewParamFile
 
     def __init__(self,
                  filename: pathlib.Path,
-                 parameter: Union[None, pivview_parameter.PIVviewParamFile, pathlib.Path] = None,
-                 post_func: Callable = None,
+                 parameter: Optional[Union[pivview_parameter.PIVviewParamFile, pathlib.Path]] = None,
+                 user_defined_hdf5_operations: Optional[
+                     Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
                  **kwargs):
-        if post_func is None:
-            post_func = pivview_post
-        super().__init__(filename, parameter, post_func, **kwargs)
+        # if user_defined_hdf5_operations is None:
+        #     user_defined_hdf5_operations = add_standard_name_operation
+        super().__init__(filename, parameter, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs)
 
     def read(self,
              relative_time: float,
@@ -489,7 +435,7 @@ class PIVViewNcFile(PIVFile):
         ny, nx = nc_data['y'].size, nc_data['x'].size
         # building HDF file
         if hdf_filename is None:
-            _hdf_filename = Path.joinpath(self.name.parent, f'{self.name.stem}.hdf')
+            _hdf_filename = Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
         else:
             _hdf_filename = hdf_filename
         with h5py.File(_hdf_filename, "w") as main:

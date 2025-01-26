@@ -1,0 +1,15 @@
+{
+  "CREATOR": {
+    "name": "John Doe",
+    "id": "https://orcid.org/1234-1234-1234-1234",
+    "role": "Researcher"
+  },
+  "PIV_MEDIUM": "air",
+  "CAMERA": {
+    "name": "My Camera",
+    "model": "PixelFly",
+    "manufacturer": "PCO",
+    "sensor_type": "CCD",
+    "serial_number": "1234567890"
+  }
+}
