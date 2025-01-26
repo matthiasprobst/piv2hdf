@@ -1,10 +1,13 @@
 """Davis interface"""
 
+import json
 import pathlib
-from typing import Dict
+from datetime import datetime
+from typing import Union, List
 
 import numpy as np
 
+from .const import DAVIS_SOFTWARE
 from .._logger import logger
 from ..interface import PIVFile
 
@@ -34,20 +37,11 @@ class File:
 
 
 def set_to_hdf(filename: pathlib.Path,
-               z_m: float = 0,
-               use_standard_names: bool = True) -> pathlib.Path:
+               z_m: float = 0) -> pathlib.Path:
     """Convert a davis set file to hdf"""
     filename = pathlib.Path(filename)
     if not filename.suffix == '.set':
         raise ValueError(f'File {filename} is not a Davis set file')
-
-    if use_standard_names:
-        from . import standard_name_translation
-
-        snt_piv = h5tbx.conventions.standard_name.StandardNameTable.from_gitlab(url='https://git.scc.kit.edu',
-                                                                                file_path='particle_image_velocimetry-v1.yaml',
-                                                                                project_id='35942',
-                                                                                ref_name='main')
 
     with lv.read_set(filename) as lvset:
 
@@ -75,22 +69,15 @@ def set_to_hdf(filename: pathlib.Path,
 
         hdf_filename = pathlib.Path(filename.parent, filename.stem + '.hdf')
         with h5tbx.File(hdf_filename, 'w') as h5:
-
-            if use_standard_names:
-                h5.standard_name_table = snt_piv
-
-            src = h5tbx.conventions.source.Software('Davis',
-                                                    version=lvset[0].attributes['_DaVisVersion'],
-                                                    author='LaVision GmbH',
-                                                    url='https://www.lavision.de')
-            h5.source = src
+            sftw = DAVIS_SOFTWARE
+            sftw["version"] = lvset[0].attributes['_DaVisVersion']
+            h5.attrs["software"] = json.dumps(sftw)
 
             piv_params = h5.create_group('piv_parameters')
 
             piv_params.create_dataset('InterrogationWindowSize',
                                       data=iwin_size,
-                                      attrs={'units': 'pixel',
-                                             'standard_name': 'final_interrogation_window_size'},
+                                      attrs={'units': 'pixel'},
                                       dtype=np.uint8)
 
             n = len(str(len(lvset)))
@@ -103,14 +90,9 @@ def set_to_hdf(filename: pathlib.Path,
             # get attrs for x:
             attrs = {k: v for k, v in lvset[0].frames[0].scales.x.__dict__.items() if k not in ('slope', 'offset')}
 
-            if use_standard_names:
-                attrs['units'] = attrs['unit']
-                attrs.pop('unit')
-                attrs['standard_name'] = 'x_coordinate'
             h5.create_dataset('ix', data=ix,
                               dtype=ix_dtype,
-                              attrs={'standard_name': 'x_pixel_coordinate',
-                                     'units': 'pixel', },
+                              attrs={'units': 'pixel', },
                               make_scale=True)
             h5.create_dataset('x', data=[frame.scales.x.slope * i + frame.scales.x.offset for i in range(nx)],
                               attrs=attrs,
@@ -119,55 +101,58 @@ def set_to_hdf(filename: pathlib.Path,
             # get attrs for y:
             attrs = {k: v for k, v in lvset[0].frames[0].scales.y.__dict__.items() if k not in ('slope', 'offset')}
 
-            if use_standard_names:
-                attrs['units'] = attrs['unit']
-                attrs['standard_name'] = 'y_coordinate'
-                attrs.pop('unit')
             h5.create_dataset('iy', data=iy,
                               dtype=iy_dtype,
-                              attrs={'standard_name': 'y_pixel_coordinate',
-                                     'units': 'pixel', },
+                              attrs={'units': 'pixel', },
                               make_scale=True)
             h5.create_dataset('y', data=[frame.scales.y.slope * j + frame.scales.y.offset for j in range(ny)],
                               attrs=attrs,
                               make_scale=True)
 
-            h5.create_dataset('z', data=z_m, attrs={'standard_name': 'z_coordinate',
-                                                    'units': 'm', }, make_scale=True)
-            h5.create_dataset('reltime', shape=(nt,), attrs={'standard_name': 'reltime',
-                                                             'units': 's', }, make_scale=True)
+            h5.create_dataset('z', data=z_m, attrs={'units': 'm', }, make_scale=True)
+            h5.create_dataset('reltime', shape=(nt,), attrs={'units': 's', }, make_scale=True)
             t = np.array([float(s.frames[0].attributes['AcqTimeSeries']) / 10 ** 6 for s in lvset], dtype=np.float32)
             h5.time.values[:] = t
 
             for name in names:
                 attrs = lvset[0].frames[0].components[name].scale.__dict__
-                if use_standard_names:
-                    attrs['units'] = attrs['unit']
-                    attrs['standard_name'] = standard_name_translation.get(name, None)
-                    attrs.pop('unit')
-                    attrs['long_name'] = attrs['description']
-                    attrs.pop('description')
-                    if attrs['long_name'] == '':
-                        attrs['long_name'] = name
-                    if attrs['units'] == 'Valid':
-                        attrs['units'] = ''
+                attrs['units'] = attrs['unit']
+                attrs.pop('unit')
+                attrs['long_name'] = attrs['description']
+                attrs.pop('description')
+                if attrs['long_name'] == '':
+                    attrs['long_name'] = name
+                if attrs['units'] == 'Valid':
+                    attrs['units'] = ''
                 ds = h5.create_dataset(name, shape=(nt, 1, *piv_shape), attrs=attrs,
                                        attach_scales=('reltime', 'z', ('y', 'iy'), ('x', 'ix')))
                 for it, _set in enumerate(lvset):
                     data = lvset[0].frames[0].components[name][0]
-                    h5[name][it, 0, :, :] = data
+                    ds[it, 0, :, :] = data
     return h5.hdf_filename
 
 
 class DavisIm7(PIVFile):
     """Davis Imager 7 PIV File interface class"""
 
-    def read(self, recording_time: float, build_coord_datasets):
+    def read(self, relative_time, **kwargs):
         """Read data from file."""
+        recording_time = kwargs.get("recording_time", None)
+        if not recording_time:
+            raise ValueError('recording_time must be provided')
+        build_coord_datasets = kwargs.get("build_coord_datasets", False)
+        if not build_coord_datasets:
+            raise ValueError('build_coord_datasets must be provided')
         is_mset = lv.is_multiset(self.filename)
         logger.debug(f'Reading davis file. is multiset. {is_mset}')
         raise NotImplementedError('DavisIm7.read() not implemented')
 
-    def to_hdf(self, hdf_filename: pathlib.Path, config: Dict, recording_time: float) -> pathlib.Path:
+    def to_hdf(self,
+               hdf_filename: pathlib.Path,
+               relative_time: float,
+               recording_dtime: Union[datetime, List[datetime]],
+               z: Union[str, float, None] = None,
+               **kwargs) -> pathlib.Path:
         """Convert file to HDF5 format."""
+        config = kwargs.get("config", {})
         raise NotImplementedError('DavisIm7.to_hdf() not implemented')

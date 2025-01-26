@@ -447,7 +447,7 @@ class PIVViewNcFile(PIVFile):
             _hdf_filename = hdf_filename
         with h5py.File(_hdf_filename, "w") as main:
             main.attrs['plane_directory'] = str(self.filename.parent.resolve())
-            main.attrs['software'] = json.dumps(PIVVIEW_SOFTWARE)  # TODO is the compliant with EngMeta?
+            main.attrs['software'] = json.dumps(PIVVIEW_SOFTWARE)
             main.attrs['title'] = 'piv snapshot data'
 
             # process piv_parameters. there must be a parameter file at the parent location
