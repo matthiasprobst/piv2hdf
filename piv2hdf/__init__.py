@@ -14,11 +14,11 @@ from ._logger import logger, set_loglevel
 from ._version import __version__
 from .config import set_config, set_pivattrs, get_config, reset_pivattrs
 from .convention import cv, CONVENTION_FILENAME
-from .interface import PIVSnapshot, PIVPlane, PIVMultiPlane
+from .interface import PIVSnapshot, PIVPlane, PIVMultiPlane, UserDefinedHDF5Operation
 from .user import USER_DIRECTORY
 
 __all__ = ['PIVSnapshot', 'PIVPlane', 'PIVMultiPlane', 'logger', 'set_loglevel',
-           'get_config', 'set_config', 'set_pivattrs', 'reset_pivattrs',
+           'get_config', 'set_config', 'set_pivattrs', 'reset_pivattrs', 'UserDefinedHDF5Operation',
            '__version__', 'CONVENTION_FILENAME', 'cv']
 
 h5tbx.use(None)

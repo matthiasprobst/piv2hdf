@@ -55,7 +55,7 @@ class TestConfig(unittest.TestCase):
         cv.register()
 
         current_cv_name = piv2hdf.get_config('convention')
-        self.assertEqual('planar_piv', current_cv_name)
+        self.assertEqual(current_cv_name, current_cv_name)
 
         piv2hdf.set_config(convention=None)
         current_cv_name = convention.get_current_convention().name

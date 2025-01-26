@@ -162,3 +162,8 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+tests/resources/pivview/piv_challenge1_E/piv_challenge1_E.hdf
+tests/resources/pivview/piv_challenge1_E/E00A1.hdf
+tests/resources/openpiv/vortex.hdf
+tests/resources/davis/dtau04.0/B00001.hdf
+tests/resources/davis/dtau04.0/B00002.hdf

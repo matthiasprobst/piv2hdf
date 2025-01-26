@@ -9,7 +9,8 @@ CONVENTION_FILENAME = RESOURCES_DIR / 'convention/standard_attributes.yaml'
 
 def init_cv() -> Convention:
     """Initialize the convention from the YAML file."""
-    assert CONVENTION_FILENAME.exists(), f'{CONVENTION_FILENAME} does not exist!'
+    if not CONVENTION_FILENAME.exists():
+        raise ValueError(f'{CONVENTION_FILENAME} does not exist!')
     return Convention.from_yaml(CONVENTION_FILENAME, overwrite=True)
 
 

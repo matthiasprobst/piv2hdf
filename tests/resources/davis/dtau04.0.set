@@ -1,0 +1,12 @@
+// set file <dtau04.0.set> created by DaVis 8.4.0 at 14.02.24 15:15:20
+
+#GROUP Sets
+SetType = 512;
+SetGroups = "";
+SetTime = "Wed Feb 14 15:15:19 24";
+SetComments = "";
+SetStart = 1;
+SetInc = 1;
+SetSourceSet = "";
+SetViewCallback = "";
+SetLoadCallback = "";

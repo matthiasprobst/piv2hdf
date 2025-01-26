@@ -1,36 +1,29 @@
 import json
-import logging
 import os
 import pathlib
 import re
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple, Union, Callable
+from typing import Dict, Tuple, Union, List, Optional
 
 import h5py
-import h5rdmtoolbox as h5tbx
 import numpy as np
 import xarray as xr
 from netCDF4 import Dataset as ncDataset
 from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import Delaunay
 
+from piv2hdf import logger
 from . import parameter as pivview_parameter
 from .const import *
 from .. import flags
 from ..config import get_config
-from ..interface import PIVFile
-from ..interface import PIV_PARAMETER_GRP_NAME, PIV_PARAMETER_ATTRS_NAME
-from ..piv_params import PIV_PeakFitMethod, PIV_METHOD
+from ..interface import PIVFile, UserDefinedHDF5Operation
 from ..time import create_recording_datetime_dataset
-from ..utils import (is_time, read_translation_yaml_file, get_uint_type,
+from ..utils import (is_time, get_uint_type,
                      parse_z)
 
 __this_file__ = pathlib.Path(__file__).resolve()
-
-_RESOURCES = __this_file__.parent / '../resources'
-PIVVIEW_TRANSLATION = read_translation_yaml_file(_RESOURCES / 'pivview/pivview_translation.yaml')
-
-logger = logging.getLogger('x2hdf')
 
 
 def _find_common_entries(dictionaries):
@@ -51,65 +44,6 @@ def _find_common_entries(dictionaries):
                     common_dict[key] = dictionaries[0][key]
 
     return common_dict
-
-
-def pivview_post(h5: h5tbx.File) -> None:
-    """pivview post function. this is specific for a convention"""
-    for name, ds in h5.items():
-        if name in PIVVIEW_TRANSLATION:
-            ds.attrs['standard_name'] = PIVVIEW_TRANSLATION[name]
-
-    def _update_fields(grp: h5tbx.Group):
-        piv_params = grp.attrs.get(PIV_PARAMETER_ATTRS_NAME, None)
-        if piv_params is None:
-            raise ValueError(f'No {PIV_PARAMETER_ATTRS_NAME} found in group {grp.name}')
-        grp.attrs['piv_method'] = PIV_METHOD(
-            piv_params['PIV processing parameters']['view0_piv_eval_method']).name
-        grp.attrs['piv_peak_method'] = PIV_PeakFitMethod(
-            piv_params['PIV processing parameters']['view0_piv_eval_peakfit_type']).name
-
-        # for ds in grp.find({'$basename': {'$regex': 'planetime_[0-9]+'}}):
-        #     ds.attrs['standard_name'] = pivview_translation['reltime']
-
-    if PIV_PARAMETER_GRP_NAME not in h5:
-        for param_grp in h5.find({'$basename': PIV_PARAMETER_GRP_NAME}, recursive=True, objfilter='group'):
-            _update_fields(h5[param_grp.name])
-        return
-    return _update_fields(h5[PIV_PARAMETER_GRP_NAME])
-
-    # # add `final_interrogation_window_size` to group "piv_parameters"
-    # piv_parameter_groups = h5.find({'$basename': 'piv_parameters'})
-    # if len(piv_parameter_groups) == 0:
-    #     piv_parameter_groups = [h5.create_group('piv_parameters'),]
-    #     # raise ValueError('No group named "piv_parameters" found in h5 file')
-    # is_root_group = piv_parameter_groups[0].parent.name == '/'
-    # if not is_root_group:
-    #     piv_params = [_g.attrs.piv_parameters for _g in piv_parameter_groups]
-    #     common_piv_params = _find_common_entries(piv_params)
-    #     h5.create_group(PIV_PARAMETER_GRP_NAME)
-    #     h5[PIV_PARAMETER_GRP_NAME].attrs['piv_parameters'] = common_piv_params
-    #     for _g in piv_parameter_groups:
-    #         _g.attrs['piv_parameters'] = {k: v for k, v in _g.attrs.piv_parameters.items() if k not in common_piv_params}
-    #
-    # piv_param_grp = h5[PIV_PARAMETER_GRP_NAME]
-    #
-    # piv_parameters = h5.attrs.piv_parameters
-    # piv_proc_param = piv_parameters['PIV processing parameters']
-    #
-    # h5.attrs['piv_method'] = PIV_METHOD(int(piv_proc_param['view0_piv_eval_method'])).name
-    #
-    # if piv_proc_param['view0_piv_eval_method'] in (0, 1, 2):  # SinglePass and MultiPass
-    #     x_final_iw_size, y_final_iw_size, _ = piv_proc_param['view0_piv_eval_samplesize']
-    #     x_final_iw_overlap_size, y_final_iw_overlap_size, _ = piv_proc_param['view0_piv_eval_samplestep']
-    # else:
-    #     raise ValueError(f'Unknown PIV evaluation method: {piv_proc_param["view0_piv_eval_method"]}')
-    # write_final_interrogation_window_size_to_h5_group(
-    #     piv_param_grp, (x_final_iw_size, y_final_iw_size)
-    # )
-    # write_final_interrogation_overlap_size_to_h5_group(
-    #     piv_param_grp,
-    #     (x_final_iw_overlap_size, y_final_iw_overlap_size)
-    # )
 
 
 def _process_pivview_root_attributes(root_attrs):
@@ -188,7 +122,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
     -------
     piv_data_array_dict : dict
         Dictionary containing the arrays
-    ncRootAttributes : dict
+    nc_root_attributes : dict
         Attribute dictionary of root variables
     variable_attributes : dict
         Attribute dictionary of dataset variables
@@ -199,7 +133,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
     """
 
-    # TODO get rid of ncRootAttributes
+    # TODO get rid of nc_root_attributes
 
     def _build_meshgrid_xy(coord_min, coord_max, width, height):
         """generates coord meshgrid from velocity attribute stating min/max of coordinates x, y"""
@@ -219,7 +153,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
         root_attributes = {key: nc_rootgrp.getncattr(key) for key in
                            ('file_content', 'creation_date', 'software')}
-        ncRootAttributes = _process_pivview_root_attributes(
+        nc_root_attributes = _process_pivview_root_attributes(
             {attr: nc_rootgrp.getncattr(attr) for attr in nc_rootgrp.ncattrs()})
 
         variable_attributes = {}
@@ -227,13 +161,13 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
         # Variable information.
         nc_data_array_dict = nc_rootgrp.variables
 
-        if ncRootAttributes['outlier_interpolate'] and masking != 'slack':
+        if nc_root_attributes['outlier_interpolate'] and masking != 'slack':
             logger.debug('Outlier masking does not conform with pivview settings in nc '
-                         f'(outlier_interpolate={ncRootAttributes["outlier_interpolate"]} vs {masking}) - '
+                         f'(outlier_interpolate={nc_root_attributes["outlier_interpolate"]} vs {masking}) - '
                          f'averages might differ')
-        elif ncRootAttributes['outlier_try_other_peak'] and masking != 'sepeaks':
+        elif nc_root_attributes['outlier_try_other_peak'] and masking != 'sepeaks':
             logger.debug('Outlier masking does not conform with pivview settings in nc '
-                         f'(outlier_interpolate={ncRootAttributes["outlier_interpolate"]} vs {masking}) - '
+                         f'(outlier_interpolate={nc_root_attributes["outlier_interpolate"]} vs {masking}) - '
                          f'averages might differ')
 
         # processed
@@ -355,7 +289,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
                     variable_attributes['dwdz'] = {
                         'units': _gradient_unit,
                         'long_name': 'velocity gradient dw/dxz assuming incompressible flow',
-                        'standard_name': 'z_derivative_of_w_velocity_assuming_incompressibility',
+                        # 'standard_name': 'z_derivative_of_w_velocity_assuming_incompressibility',
                         'comment': 'Calculated from continuity equation using dud and dvdy and assuming '
                                    'incompressible flow!'
                     }
@@ -375,10 +309,13 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
             # the velocity dataset has the attribute coord_min and coord_max from which the coordinates can be derived:
             piv_data_array_dict['x'] = np.linspace(fr[0], to[0], w)
             piv_data_array_dict['y'] = np.linspace(fr[1], to[1], h)
-            variable_attributes['x'] = {'units': ncRootAttributes['length_conversion_units']}
-            variable_attributes['y'] = {'units': ncRootAttributes['length_conversion_units']}
-            assert px_fr[0] >= 0
-            assert px_fr[1] >= 0
+            variable_attributes['x'] = {'units': nc_root_attributes['length_conversion_units']}
+            variable_attributes['y'] = {'units': nc_root_attributes['length_conversion_units']}
+            if not px_fr[0] >= 0:
+                raise ValueError(f'Invalid pixel coordinate: {px_fr[0]}')
+            if not px_fr[1] >= 0:
+                raise ValueError(f'Invalid pixel coordinate: {px_fr[1]}')
+
             piv_data_array_dict['ix'] = np.linspace(px_fr[0], px_to[0], w).astype(get_uint_type(px_to[0]))
             piv_data_array_dict['iy'] = np.linspace(px_fr[1], px_to[1], h).astype(get_uint_type(px_to[0]))
             variable_attributes['ix'] = {'long_name': 'pixel x-location of vector',
@@ -387,14 +324,14 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
                                          'units': 'pixel'}
 
             # Z position information
-            z_unit = ncRootAttributes['length_conversion_units']  # default unit of z comes from file
+            z_unit = nc_root_attributes['length_conversion_units']  # default unit of z comes from file
             if isinstance(z_source, str):
                 if z_source == 'coord_min':
                     z = fr[2]
                 elif z_source == 'coord_max':
                     z = to[2]
                 elif z_source == 'origin_offset':
-                    z = ncRootAttributes['origin_offset_z']
+                    z = nc_root_attributes['origin_offset_z']
                 elif z_source == 'file':
                     try:
                         z = float(
@@ -427,31 +364,44 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
 
 
 class PIVViewNcFile(PIVFile):
-    """Interface class to a PIVview netCDF4 file for a 2D recording (using .par parameter files)"""
+    """Interface class to a PIVview netCDF4 file for a 2D recording (using .par parameter files)
+
+    Parameters
+    ----------
+    filename : pathlib.Path
+        path to the nc file
+    parameter : Union[None, pivview_parameter.PIVviewParamFile, pathlib.Path], optional
+        path to the parameter file, by default None
+    user_defined_hdf5_operations : optional UserDefinedHDF5Operation or List[UserDefinedHDF5Operation]
+        Injects code that is executed after the HDF5 file is created, by default None
+    kwargs : dict
+        additional keyword arguments
+    """
     suffix: str = '.nc'
     __parameter_cls__ = pivview_parameter.PIVviewParamFile
 
     def __init__(self,
                  filename: pathlib.Path,
-                 parameter: Union[None, pivview_parameter.PIVviewParamFile, pathlib.Path] = None,
-                 post_func: Callable = None,
+                 parameter: Optional[Union[pivview_parameter.PIVviewParamFile, pathlib.Path]] = None,
+                 user_defined_hdf5_operations: Optional[
+                     Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
                  **kwargs):
-        if post_func is None:
-            post_func = pivview_post
-        super().__init__(filename, parameter, post_func, **kwargs)
+        # if user_defined_hdf5_operations is None:
+        #     user_defined_hdf5_operations = add_standard_name_operation
+        super().__init__(filename, parameter, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs)
 
     def read(self,
              relative_time: float,
-             *,
-             build_coord_datasets=True) -> Tuple[Dict, Dict, Dict]:
+             **kwargs) -> Tuple[Dict, Dict, Dict]:
         """reads and processes nc data
 
         Parameters
         ----------
         relative_time : float
             relative time of the snapshot read
-        build_coord_datasets : bool, optional
-            whether to build coordinate datasets, by default True
+        kwargs:
+            build_coord_datasets : bool, optional=True
+                whether to build coordinate datasets, by default True
 
         Returns
         -------
@@ -462,6 +412,8 @@ class PIVViewNcFile(PIVFile):
         nc_variable_attr : dict
             dictionary of variable attributes
         """
+
+        build_coord_datasets = kwargs.get("build_coord_datasets", True)
         from . import config as pivview_config
         masking = pivview_config['masking']
         interpolation = pivview_config['interpolation']
@@ -480,8 +432,9 @@ class PIVViewNcFile(PIVFile):
     def to_hdf(self,
                hdf_filename: pathlib.Path,
                relative_time: float,
-               recording_dtime: str,  # iso-format of datetime!
-               z: Union[str, float, None] = None) -> pathlib.Path:
+               recording_dtime: Union[datetime, List[datetime]],  # iso-format of datetime!
+               z: Union[str, float, None] = None,
+               **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
         nc_data, nc_root_attr, nc_variable_attr = self.read(relative_time=relative_time)
         if z is not None:
@@ -489,12 +442,12 @@ class PIVViewNcFile(PIVFile):
         ny, nx = nc_data['y'].size, nc_data['x'].size
         # building HDF file
         if hdf_filename is None:
-            _hdf_filename = Path.joinpath(self.name.parent, f'{self.name.stem}.hdf')
+            _hdf_filename = Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
         else:
             _hdf_filename = hdf_filename
         with h5py.File(_hdf_filename, "w") as main:
             main.attrs['plane_directory'] = str(self.filename.parent.resolve())
-            main.attrs['software'] = json.dumps(PIVVIEW_SOFTWARE)  # TODO is the compliant with EngMeta?
+            main.attrs['software'] = json.dumps(PIVVIEW_SOFTWARE)
             main.attrs['title'] = 'piv snapshot data'
 
             # process piv_parameters. there must be a parameter file at the parent location

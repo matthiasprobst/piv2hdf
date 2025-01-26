@@ -18,7 +18,7 @@ standard_names:
   piv_first_peak_correlation_coefficient:
     description: The correlation coefficient is a measure for the quality of the PIV
       evaluation. It is computed based on the cross-correlation of the interrogation
-      windows. The first peak correlation coeficient is the correlation coefficient
+      windows. The first peak correlation coefficient is the correlation coefficient
       of the first peak of the cross-correlation function.
     units: ''
   piv_second_peak_correlation_coefficient:
