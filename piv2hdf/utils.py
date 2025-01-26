@@ -202,9 +202,10 @@ def write_final_interrogation_window_size_to_h5_group(h5grp, interrogation_windo
         iwsds = h5grp.create_dataset(f'{prefix}_final_iw_size',
                                      data=iws,
                                      dtype=dtype)
-        iwsds.attrs.update({'standard_name': f'{prefix}_final_interrogation_window_size',
-                            'long_name': f'the final interrogation window size in {prefix}-direction',
-                            'units': 'pixel'})
+        iwsds.attrs.update({
+            # 'standard_name': f'{prefix}_final_interrogation_window_size',
+            'long_name': f'the final interrogation window size in {prefix}-direction',
+            'units': 'pixel'})
 
 
 def write_final_interrogation_overlap_size_to_h5_group(h5grp, overlap_size, dtype=None):
@@ -222,6 +223,7 @@ def write_final_interrogation_overlap_size_to_h5_group(h5grp, overlap_size, dtyp
         iwods = h5grp.create_dataset(f'{prefix}_final_overlap',
                                      data=iws,
                                      dtype=dtype)
-        iwods.attrs.update({'standard_name': f'{prefix}_final_interrogation_window_overlap_size',
-                            'long_name': f'the final interrogation window size in {prefix}-direction',
-                            'units': 'pixel'})
+        iwods.attrs.update({
+            # 'standard_name': f'{prefix}_final_interrogation_window_overlap_size',
+            'long_name': f'the final interrogation window size in {prefix}-direction',
+            'units': 'pixel'})

@@ -289,7 +289,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
                     variable_attributes['dwdz'] = {
                         'units': _gradient_unit,
                         'long_name': 'velocity gradient dw/dxz assuming incompressible flow',
-                        'standard_name': 'z_derivative_of_w_velocity_assuming_incompressibility',
+                        # 'standard_name': 'z_derivative_of_w_velocity_assuming_incompressibility',
                         'comment': 'Calculated from continuity equation using dud and dvdy and assuming '
                                    'incompressible flow!'
                     }
