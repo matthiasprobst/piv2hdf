@@ -6,6 +6,6 @@ authors:
     orcid: "https://orcid.org/0000-0001-8729-0482"
 title: "piv2hdf"
 version: 2.0.0a1
-doi: 10.5281/zenodo.14496849 # TODO change!
-date-released: 2024-15-12
+doi: 10.5281/zenodo.14755422 # TODO change!
+date-released: 2024-26-01
 url: "https://github.com/matthiasprobst/piv2hdf"

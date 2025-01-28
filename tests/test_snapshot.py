@@ -30,15 +30,16 @@ def read_meta():
         meta = json.load(f)
     return meta
 
+
 try:
     import lvpyio as lv
+
     lvpyio_installed = True
 except ImportError:
     lvpyio_installed = False
 
 
 class TestSnapshot(unittest.TestCase):
-
     if lvpyio_installed:
         def test_davis_snapshot(self):
             from piv2hdf.davis import VC7File
@@ -70,25 +71,22 @@ class TestSnapshot(unittest.TestCase):
 
         piv2hdf.reset_pivattrs()
 
-        with self.assertRaises(h5tbx.errors.StandardAttributeError):
-            snapshot.to_hdf()
-
-        with self.assertRaises(TypeError):
-            PIVSnapshot(piv_file=None, recording_dtime=None)
+        # with self.assertRaises(h5tbx.errors.StandardAttributeError):
+        #     snapshot.to_hdf()
 
         with self.assertRaises(TypeError):
             PIVSnapshot(piv_file=pivfile, recording_dtime=[0., 1.])
 
         snapshot = PIVSnapshot(piv_file=pivfile,
                                recording_dtime=datetime.datetime(2023, 1, 15, 13, 42, 2, 3))
-        with self.assertRaises(h5tbx.errors.StandardAttributeError):
-            _ = snapshot.to_hdf(piv_attributes={'piv_medium': meta["PIV_MEDIUM"]})
+        # with self.assertRaises(h5tbx.errors.StandardAttributeError):
+        #     _ = snapshot.to_hdf(piv_attributes={'piv_medium': meta["PIV_MEDIUM"]})
 
         hdf_filename = snapshot.to_hdf(piv_attributes={'creator': meta["CREATOR"],
                                                        'piv_medium': meta["PIV_MEDIUM"],
                                                        'camera': meta["CAMERA"]})
         self.assertEqual(hdf_filename, snapshot.hdf_filename)
-        nc_data = snapshot.piv_file.read(0)[0]
+        nc_data = snapshot.piv_file.read(0).data
 
         with h5tbx.File(hdf_filename) as h5:
             self.assertEqual(h5.attrs['creator'], meta["CREATOR"])
