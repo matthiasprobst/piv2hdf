@@ -20,6 +20,13 @@ CREATOR = {
     'role': 'Researcher'
 }
 
+try:
+    import lvpyio as lv
+
+    lvpyio_installed = True
+except ImportError:
+    lvpyio_installed = False
+
 
 def validate_planar_plane_pivview(test, hdf_filename, nc_data, plane):
     """Test the hdf5 file created by pivview"""
@@ -38,7 +45,7 @@ def validate_planar_plane_pivview(test, hdf_filename, nc_data, plane):
             test.assertIn(k, h5)
 
         for i in range(h5['u'].shape[0]):
-            nc_data = plane.list_of_piv_files[i].read(0)[0]
+            nc_data = plane.list_of_piv_files[i].read(0).data
             for k in nc_data.keys():
                 if k not in ('z', 'reltime', 'x', 'y', 'ix', 'iy', 'time', 'image_index'):
                     np.testing.assert_array_equal(h5[k][i, ...], nc_data[k][()])
@@ -109,8 +116,8 @@ class TestPlane(unittest.TestCase):
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
-        nc_data = plane.list_of_piv_files[0].read(0)[0]
-        validate_planar_plane_pivview(self, hdf_filename, nc_data, plane)
+        pivdata = plane.list_of_piv_files[0].read(0)
+        validate_planar_plane_pivview(self, hdf_filename, pivdata.data, plane)
         with h5tbx.File(hdf_filename) as h5:
             self.assertTrue('mean_u' not in h5)
 
@@ -135,7 +142,7 @@ class TestPlane(unittest.TestCase):
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
-        validate_planar_plane_pivview(self, hdf_filename, nc_data, plane)
+        validate_planar_plane_pivview(self, hdf_filename, pivdata.data, plane)
 
         # now have a longer time vector that is too long!
         with self.assertWarns(TimeVectorWarning):
@@ -147,7 +154,26 @@ class TestPlane(unittest.TestCase):
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
-        validate_planar_plane_pivview(self, hdf_filename, nc_data, plane)
+        validate_planar_plane_pivview(self, hdf_filename, pivdata.data, plane)
+
+    if lvpyio_installed:
+        def test_singleplane_davis(self):
+            from piv2hdf.davis import VC7File
+            from piv2hdf.davis.parameter import DavisParameterFile
+
+            vc7_filenames = tutorial.Davis.get_vc7_files()
+            param = DavisParameterFile(vc7_filenames[0])
+            plane_dir = vc7_filenames[0].parent
+            plane = PIVPlane.from_folder(
+                plane_directory=plane_dir,
+                time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
+                pivfile=VC7File,
+                parameter=param,
+                # user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                prefix_pattern='*[0-9]')
+            hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
+                                                            creator=CREATOR),
+                                        z=0.51)
 
     def test_singleplane_pivivew_explicit_parameter(self):
         # explicitly pass parameter

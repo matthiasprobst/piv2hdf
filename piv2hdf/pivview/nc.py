@@ -18,7 +18,7 @@ from . import parameter as pivview_parameter
 from .const import *
 from .. import flags
 from ..config import get_config
-from ..interface import PIVFile, UserDefinedHDF5Operation
+from ..interface import PIVFile, UserDefinedHDF5Operation, PIVData
 from ..time import create_recording_datetime_dataset
 from ..utils import (is_time, get_uint_type,
                      parse_z)
@@ -72,8 +72,7 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
     """
     Reads data and attributes from netCDF file. Results are stored in dictionary. Interpolation
     to fill "holes"/masked areas is applied if asked. Data arrays x, y, z and time are created.
-    Array shape is changed from (1, ny, nx) and (1, ny, nx, nv) to (ny, nx). Thus new variables are
-    created:
+    Array shape is changed from (1, ny, nx) and (1, ny, nx, nv) to (ny, nx). Thus, new variables are created:
         velocity (1, ny, nx, 2[3]) --> u (ny, nx), v (ny, nx) [, w (ny, nx)]
         piv_data (1, ny, nx, 2[3]) --> dx (ny, nx), dy (ny, nx) [, dz (ny, nx)]
         piv_peak1 (1, ny, nx, 3) --> piv_peak1_dx (ny, nx), piv_peak1_dy (ny, nx), piv_peak1_corr
@@ -99,11 +98,11 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
     time_unit : str, optional='s'
         unit taken for time if time was not of type astropy.quantity.
     z_source: str or tuple, optional='coord_min'
-        The z-location can be specified manually by passing a astropy quantity
+        The z-location can be specified manually by passing an astropy quantity
         or a list/tuple in form  (value: float, unit: str).
-        It also possible to detect the z-location from the nc-file (experience shows
+        It is also possible to detect the z-location from the nc-file (experience shows
         that this was not always correctly set by the experimenter...). Alternative,
-        the z-location is tried to determined by the file name.
+        the z-location is tried to determine by the file name.
         Automatic detection from nc file can be used scanning one of the following
         attributes which then are to be passed as string for this parameter:
             * 'coord_min'
@@ -392,7 +391,7 @@ class PIVViewNcFile(PIVFile):
 
     def read(self,
              relative_time: float,
-             **kwargs) -> Tuple[Dict, Dict, Dict]:
+             **kwargs) -> PIVData:
         """reads and processes nc data
 
         Parameters
@@ -425,9 +424,9 @@ class PIVViewNcFile(PIVFile):
                                                                           interpolate=interpolation,
                                                                           build_coord_datasets=build_coord_datasets)
         # nc_root_attr['filename'] = nc_root_attr.pop('long_name')
-        # unique_flags = np.unique(nc_data['piv_flags'][:])
+        # unique_flags = np.unique(piv_data.data['piv_flags'][:])
         nc_variable_attr['piv_flags']['flag_meaning'] = json.dumps({flag.value: flag.name for flag in flags.Flags})
-        return nc_data, nc_root_attr, nc_variable_attr
+        return PIVData(nc_data, nc_variable_attr, nc_root_attr)
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
@@ -436,10 +435,10 @@ class PIVViewNcFile(PIVFile):
                z: Union[str, float, None] = None,
                **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
-        nc_data, nc_root_attr, nc_variable_attr = self.read(relative_time=relative_time)
+        piv_data = self.read(relative_time=relative_time)
         if z is not None:
-            nc_data['z'], nc_variable_attr['z']['units'] = parse_z(z)
-        ny, nx = nc_data['y'].size, nc_data['x'].size
+            piv_data.data['z'], piv_data.data_attrs['z']['units'] = parse_z(z)
+        ny, nx = piv_data.data['y'].size, piv_data.data['x'].size
         # building HDF file
         if hdf_filename is None:
             _hdf_filename = Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
@@ -459,25 +458,25 @@ class PIVViewNcFile(PIVFile):
             for i, cname in enumerate(('x', 'y', 'ix', 'iy')):
                 ds = main.create_dataset(
                     name=cname,
-                    shape=nc_data[cname].shape,
-                    maxshape=nc_data[cname].shape,
-                    chunks=nc_data[cname].shape,
-                    data=nc_data[cname], dtype=nc_data[cname].dtype,
+                    shape=piv_data.data[cname].shape,
+                    maxshape=piv_data.data[cname].shape,
+                    chunks=piv_data.data[cname].shape,
+                    data=piv_data.data[cname], dtype=piv_data.data[cname].dtype,
                     compression=get_config('compression'),
                     compression_opts=get_config('compression_opts'))
-                for k, v in nc_variable_attr[cname].items():
+                for k, v in piv_data.data_attrs[cname].items():
                     ds.attrs[k] = v
                 ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
 
             for i, cname in enumerate(('z', 'reltime')):
-                ds = main.create_dataset(cname, data=nc_data[cname])
-                for k, v in nc_variable_attr[cname].items():
+                ds = main.create_dataset(cname, data=piv_data.data[cname])
+                for k, v in piv_data.data_attrs[cname].items():
                     ds.attrs[k] = v
                 ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
 
             # Data Arrays
             _shape = (ny, nx)
-            for k, v in nc_data.items():
+            for k, v in piv_data.data.items():
                 if k not in DIM_NAMES:
                     ds = main.create_dataset(
                         name=k,
@@ -496,8 +495,8 @@ class PIVViewNcFile(PIVFile):
                     else:
                         ds.attrs['COORDINATES'] = ['reltime', 'z', ds_rec_dtime.name]
 
-                    if k in nc_variable_attr:
-                        for attr_key, attr_val in nc_variable_attr[k].items():
+                    if k in piv_data.data_attrs:
+                        for attr_key, attr_val in piv_data.data_attrs[k].items():
                             if attr_key not in IGNORE_ATTRS:
                                 ds.attrs[attr_key] = attr_val
             # # pivflags explanation:

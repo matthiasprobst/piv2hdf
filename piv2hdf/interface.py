@@ -18,6 +18,7 @@ from ._logger import logger
 from .time import TimeVectorWarning
 from .time import create_recording_datetime_dataset
 from .utils import generate_temporary_filename, get_uint_type, parse_z
+from dataclasses import dataclass
 
 PIV_PARAMETER_GRP_NAME = 'piv_parameters'
 PIV_PARAMETER_ATTRS_NAME = 'piv_parameter_dict'
@@ -224,6 +225,11 @@ class PIVParameterInterface:
                         ds.attrs[ak] = av
         return grp
 
+@dataclass
+class PIVData:
+    data: Dict
+    data_attrs: Dict
+    root_attrs: Dict
 
 @runtime_checkable
 class UserDefinedHDF5Operation(Protocol):
@@ -300,7 +306,7 @@ class PIVFile(abc.ABC):
             self,
             relative_time: float,
             **kwargs
-    ) -> Tuple[Dict, Dict, Dict]:
+    ) -> PIVData:
         """Read data from file.
         Except data, root_attr, variable_attr"""
 
@@ -624,17 +630,17 @@ class PIVPlane(PIVConverter):
         # get data from first snapshot to prepare the HDF5 file
         logger.debug('Reading first PIV file: '
                      f'{self.list_of_piv_files[0].__class__.__name__}({self.list_of_piv_files[0].filename}')
-        data, root_attr, variable_attr = self.list_of_piv_files[0].read(self.rel_time_vector[0])
+        pivdata = self.list_of_piv_files[0].read(self.rel_time_vector[0])
 
         if z is not None:
-            data['z'], z_units = parse_z(z)
+            pivdata.data['z'], z_units = parse_z(z)
         else:
             z_units = None
-        mandatory_keys = ('x', 'y', 'z', 'ix', 'iy', 'u', 'v', 'reltime')
+        mandatory_keys = ('x', 'y', 'z', 'ix', 'iy', 'reltime')
         for mkey in mandatory_keys:
-            if mkey not in data.keys():
+            if mkey not in pivdata.data.keys():
                 raise KeyError(f'Mandatory key {mkey} not provided.')
-        nt, ny, nx = self.rel_time_vector.size, data['y'].size, data['x'].size
+        nt, ny, nx = self.rel_time_vector.size, pivdata.data['y'].size, pivdata.data['x'].size
         _shape = dict(reltime=nt, y=ny, x=nx)
         dataset_shape = tuple([_shape[k] for k in self.plane_coord_order])
         _chunk = [_shape[n] for n in self.plane_coord_order]
@@ -655,7 +661,7 @@ class PIVPlane(PIVConverter):
         with h5tbx.File(hdf_filename, 'w') as h5main:
             pbar.update()
             h5main.attrs['title'] = title
-            for ak, av in root_attr.items():
+            for ak, av in pivdata.root_attrs.items():
                 h5main.attrs[ak] = av
             # self.list_of_piv_files[0].write_parameters(h5main.create_group(PIV_PARAMETER_GRP_NAME))
             if PIV_PARAMETER_GRP_NAME not in h5main:
@@ -663,14 +669,14 @@ class PIVPlane(PIVConverter):
             self.list_of_piv_files[0].write_parameters(h5main[PIV_PARAMETER_GRP_NAME])
             logger.debug('Creating datasets for coordinates (x, y, z, time, ix, iy)')
 
-            if data['ix'].min() < 0:
+            if pivdata.data['ix'].min() < 0:
                 raise ValueError('Data of ix must not be smaller than zero!')
-            if data['iy'].min() < 0:
+            if pivdata.data['iy'].min() < 0:
                 raise ValueError('Data of iy must not be smaller than zero!')
 
             for ds_name, maxshape in zip(('x', 'ix', 'y', 'iy', 'z'), (nx, nx, ny, ny, None)):
                 h5main.create_dataset(name=ds_name,
-                                      data=data[ds_name],
+                                      data=pivdata.data[ds_name],
                                       maxshape=maxshape,
                                       dtype=get_config()['dtypes'].get(ds_name, None))
 
@@ -679,13 +685,13 @@ class PIVPlane(PIVConverter):
 
             for varkey in ('x', 'y', 'ix', 'iy', 'reltime'):
                 h5main[varkey].make_scale()
-                for ak, av in variable_attr[varkey].items():
+                for ak, av in pivdata.data_attrs[varkey].items():
                     h5main[varkey].attrs[ak] = av
 
-            if 'z' not in variable_attr:
+            if 'z' not in pivdata.data_attrs:
                 h5main['z'].attrs['units'] = z_units
             else:
-                for ak, av in variable_attr['z'].items():
+                for ak, av in pivdata.data_attrs['z'].items():
                     h5main['z'].attrs[ak] = av
 
             # write all other dataset to file:
@@ -700,7 +706,7 @@ class PIVPlane(PIVConverter):
 
             dataset_keys = []  # fill with dataset names that are not coordinates.
 
-            for varkey, vardata in data.items():
+            for varkey, vardata in pivdata.data.items():
                 if varkey not in ('x', 'y', 'ix', 'iy', 'z', 'reltime'):
                     dataset_keys.append(varkey)
                     ds = h5main.create_dataset(name=varkey,
@@ -720,23 +726,23 @@ class PIVPlane(PIVConverter):
                     ds[0, ...] = vardata[...]
 
                     # write attributes to datasets
-                    if varkey in variable_attr:
-                        for ak, av in variable_attr[varkey].items():
+                    if varkey in pivdata.data_attrs:
+                        for ak, av in pivdata.data_attrs[varkey].items():
                             ds.attrs[ak] = av
 
             logger.debug(f'Writing all datasets to file. Number of source files: {len(self.list_of_piv_files[1:])}')
             for (ifile, piv_file), t in zip(enumerate(self.list_of_piv_files[1:]), self.rel_time_vector[1:]):
                 pbar.update(1)
                 logger.debug(f'Processing {piv_file.filename}')
-                data, _, variable_attr = piv_file.read(t)
+                _pivdata = piv_file.read(t)
                 for varkey in dataset_keys:
-                    h5main[varkey][ifile + 1, ...] = data[varkey][...]
+                    h5main[varkey][ifile + 1, ...] = _pivdata.data[varkey][...]
 
                 # pivview hack: flag meaning might be different for each plane because not all planes
                 # have the same flag values and only those that appear are added to the dict
-                if 'piv_flags' in variable_attr.keys():
+                if 'piv_flags' in _pivdata.data_attrs.keys():
                     try:
-                        flag_meaning_plane = variable_attr['piv_flags']['flag_meaning']
+                        flag_meaning_plane = _pivdata.data_attrs['piv_flags']['flag_meaning']
                         if not isinstance(flag_meaning_plane, dict):
                             flag_meaning_plane_dict = json.loads(flag_meaning_plane)
 

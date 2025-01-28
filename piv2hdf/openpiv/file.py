@@ -12,8 +12,7 @@ from .const import *
 from .parameter import OpenPIVParameterFile
 from ..config import get_config
 from ..flags import flag_translation_dict, Flags
-from ..interface import PIVFile, UserDefinedHDF5Operation
-from ..time import create_recording_datetime_dataset
+from ..interface import PIVFile, UserDefinedHDF5Operation, PIVData
 from ..utils import get_uint_type, parse_z
 
 __this_dir__ = pathlib.Path(__file__)
@@ -63,7 +62,7 @@ class OpenPIVFile(PIVFile):
                  **kwargs):
         super().__init__(*args, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs, )
 
-    def read(self, relative_time: float, **kwargs):
+    def read(self, relative_time: float, **kwargs) -> PIVData:
         """Read data from file."""
         px_mm_scale = float(self._parameter.param_dict['scaling_factor'])  # pixel/mm
 
@@ -128,7 +127,9 @@ class OpenPIVFile(PIVFile):
         if 'w' in data_dict:
             variable_attributes['w'] = dict(units='m/s')
 
-        return data_dict, {'software': json.dumps(OPENPIV_SOFTWARE)}, variable_attributes
+        return PIVData(data_dict,
+                       variable_attributes,
+                       {'software': json.dumps(OPENPIV_SOFTWARE)})
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
@@ -137,9 +138,9 @@ class OpenPIVFile(PIVFile):
                z: Union[float, None] = None,
                **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
-        data, root_attr, variable_attr = self.read(relative_time)
+        pivdata = self.read(relative_time)
         if z is not None:
-            data['z'], variable_attr['z']['units'] = parse_z(z)
+            pivdata.data['z'], pivdata.data_attrs['z']['units'] = parse_z(z)
         # building HDF file
         if hdf_filename is None:
             _hdf_filename = pathlib.Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
@@ -148,7 +149,7 @@ class OpenPIVFile(PIVFile):
 
         with h5tbx.File(_hdf_filename, "w") as main:
             main.attrs['title'] = 'piv snapshot data'
-            for ak, av in root_attr.items():
+            for ak, av in pivdata.root_attrs.items():
                 main.attrs[ak] = av
             main.attrs['plane_directory'] = str(self.filename.parent.resolve())
 
@@ -160,7 +161,7 @@ class OpenPIVFile(PIVFile):
             # if recording_dtime is not None:
             #     ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
             var_list = []
-            for varkey, vardata in data.items():
+            for varkey, vardata in pivdata.data.items():
                 if vardata.ndim == 1:
                     ds = main.create_dataset(
                         name=varkey,
@@ -169,13 +170,13 @@ class OpenPIVFile(PIVFile):
                         data=vardata,
                         compression=get_config('compression'),
                         compression_opts=get_config('compression_opts'),
-                        attrs=variable_attr.get(varkey, None))
+                        attrs=pivdata.data_attrs.get(varkey, None))
                     ds.make_scale()
                 elif vardata.ndim == 0:
                     main.create_dataset(name=varkey,
                                         data=vardata,
                                         dtype=vardata.dtype,
-                                        attrs=variable_attr[varkey])
+                                        attrs=pivdata.data_attrs[varkey])
                 else:
                     ds = main.create_dataset(
                         name=varkey,
@@ -186,12 +187,12 @@ class OpenPIVFile(PIVFile):
                         dtype=vardata.dtype,
                         compression=get_config('compression'),
                         compression_opts=get_config('compression_opts'),
-                        attrs=variable_attr.get(varkey, None))
+                        attrs=pivdata.data_attrs.get(varkey, None))
                     var_list.append(ds)
             for ds in var_list:
                 ds.dims[0].attach_scale(main['y'])
                 ds.dims[1].attach_scale(main['x'])
-            for k, v in variable_attr.items():
+            for k, v in pivdata.data_attrs.items():
                 if k in main:
                     for ak, av in v.items():
                         main[k].attrs[ak] = av
