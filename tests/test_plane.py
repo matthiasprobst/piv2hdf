@@ -6,9 +6,9 @@ import h5py
 import h5rdmtoolbox as h5tbx
 import numpy as np
 
+import piv2hdf
 from piv2hdf import openpiv, pivview, tutorial
 from piv2hdf.config import get_config, set_config
-from piv2hdf.interface import PIVPlane
 from piv2hdf.openpiv.user_operations import add_standard_name_operation as openpiv_add_standard_name_operation
 from piv2hdf.pivview.user_operations import add_standard_name_operation as pivview_add_standard_name_operation
 from piv2hdf.time import TimeVectorWarning
@@ -83,7 +83,7 @@ class TestPlane(unittest.TestCase):
         if stereo_plane_dir.exists():
             PIVViewStereoNcFile.__parameter_cls__(stereo_plane_dir / 'plane.cfg')
 
-            plane_stereo = PIVPlane.from_folder(
+            plane_stereo = piv2hdf.PIVPlane.from_folder(
                 plane_directory=stereo_plane_dir,
                 time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                 pivfile=PIVViewStereoNcFile,
@@ -108,11 +108,11 @@ class TestPlane(unittest.TestCase):
         self.assertEqual(get_config()['postproc'], [])
 
         plane_dir = tutorial.PIVview.get_plane_directory()
-        plane = PIVPlane.from_folder(plane_directory=plane_dir,
-                                     time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
-                                     pivfile=pivview.PIVViewNcFile,
-                                     user_defined_hdf5_operations=pivview_add_standard_name_operation,
-                                     prefix_pattern='*[0-9]')
+        plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
+                                             time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
+                                             pivfile=pivview.PIVViewNcFile,
+                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
@@ -134,11 +134,11 @@ class TestPlane(unittest.TestCase):
 
         time_vector = [datetime.datetime(2023, 10, 1, 12) + datetime.timedelta(seconds=i / 10) for i in range(100)]
         # now have a longer time vector:
-        plane = PIVPlane.from_folder(plane_directory=plane_dir,
-                                     time_info=time_vector[0:len(plane.list_of_piv_files)],
-                                     pivfile=pivview.PIVViewNcFile,
-                                     user_defined_hdf5_operations=pivview_add_standard_name_operation,
-                                     prefix_pattern='*[0-9]')
+        plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
+                                             time_info=time_vector[0:len(plane.list_of_piv_files)],
+                                             pivfile=pivview.PIVViewNcFile,
+                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
@@ -146,11 +146,11 @@ class TestPlane(unittest.TestCase):
 
         # now have a longer time vector that is too long!
         with self.assertWarns(TimeVectorWarning):
-            plane = PIVPlane.from_folder(plane_directory=plane_dir,
-                                         time_info=time_vector[:],
-                                         pivfile=pivview.PIVViewNcFile,
-                                         user_defined_hdf5_operations=pivview_add_standard_name_operation,
-                                         prefix_pattern='*[0-9]')
+            plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
+                                                 time_info=time_vector[:],
+                                                 pivfile=pivview.PIVViewNcFile,
+                                                 user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                                 prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
                                     z=0.51)
@@ -164,7 +164,7 @@ class TestPlane(unittest.TestCase):
             vc7_filenames = tutorial.Davis.get_vc7_files()
             param = DavisParameterFile(vc7_filenames[0])
             plane_dir = vc7_filenames[0].parent
-            plane = PIVPlane.from_folder(
+            plane = piv2hdf.PIVPlane.from_folder(
                 plane_directory=plane_dir,
                 time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
                 pivfile=VC7File,
@@ -181,11 +181,11 @@ class TestPlane(unittest.TestCase):
         par_filename = plane_dir / 'piv_parameters.par'
         par = pivview.PIVviewParamFile(par_filename)
         plane_dir = tutorial.PIVview.get_plane_directory()
-        plane = PIVPlane.from_folder(plane_dir,
-                                     time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
-                                     pivfile=pivview.PIVViewNcFile,
-                                     user_defined_hdf5_operations=pivview_add_standard_name_operation,
-                                     parameter=par)
+        plane = piv2hdf.PIVPlane.from_folder(plane_dir,
+                                             time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
+                                             pivfile=pivview.PIVViewNcFile,
+                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             parameter=par)
 
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
@@ -218,11 +218,11 @@ class TestPlane(unittest.TestCase):
         par_filename = plane_dir / 'piv_parameters.par'
         par = pivview.PIVviewParamFile(par_filename)
         plane_dir = tutorial.PIVview.get_plane_directory()
-        plane = PIVPlane.from_folder(plane_dir,
-                                     time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
-                                     pivfile=pivview.PIVViewNcFile,
-                                     user_defined_hdf5_operations=pivview_add_standard_name_operation,
-                                     parameter=par)
+        plane = piv2hdf.PIVPlane.from_folder(plane_dir,
+                                             time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
+                                             pivfile=pivview.PIVViewNcFile,
+                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             parameter=par)
 
         hdf_filename = plane.to_hdf(
             piv_attributes=dict(piv_medium='air',
@@ -250,11 +250,11 @@ class TestPlane(unittest.TestCase):
 
     def test_singleplane_openpiv(self):
         plane_dir = tutorial.OpenPIV.get_plane_directory()
-        plane = PIVPlane.from_folder(plane_dir,
-                                     time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
-                                     pivfile=openpiv.OpenPIVFile,
-                                     user_defined_hdf5_operations=openpiv_add_standard_name_operation,
-                                     )
+        plane = piv2hdf.PIVPlane.from_folder(plane_dir,
+                                             time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
+                                             pivfile=openpiv.OpenPIVFile,
+                                             user_defined_hdf5_operations=openpiv_add_standard_name_operation,
+                                             )
         hdf_filename = plane.to_hdf(
             piv_attributes=dict(piv_medium='air', creator=CREATOR), z=0.51)
         with h5tbx.File(hdf_filename) as h5:

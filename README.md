@@ -12,18 +12,18 @@ Tool for the conversion of PIV measurements into HDF5 files
 ## Installation
 
 ```
-pip install git+https://github.com/matthiasprobst/piv2hdf
+pip install piv2hdf
 ```
 
 or for development:
 
 ```
-pip install -e git+https://github.com/matthiasprobst/piv2hdf
+pip install -e piv2hdf
 ```
 
 The conversion of davis files requires the package `lvpyio`. This can be installed by running:
 ```
-pip install git+https://github.com/matthiasprobst/piv2hdf[davis]
+pip install piv2hdf[davis]
 ```
 **Note**, that Davis files cannot be converted on MacOS!
 

@@ -5,6 +5,7 @@ import logging
 import pathlib
 import unittest
 
+import dateutil
 import h5rdmtoolbox as h5tbx
 import numpy as np
 
@@ -62,11 +63,8 @@ class TestSnapshot(unittest.TestCase):
         pivview_nc_file = tutorial.PIVview.get_snapshot_nc_files()[0]
         pivfile = pivview.PIVViewNcFile(
             filename=pivview_nc_file,
-            parameter_filename=None,
             user_defined_hdf5_operations=pivview_add_standard_name_operation
         )
-        snapshot = PIVSnapshot(piv_file=pivfile,
-                               recording_dtime=datetime.datetime(2023, 1, 15, 13, 42, 2, 3))
         self.assertIsInstance(pivfile, PIVFile)
 
         piv2hdf.reset_pivattrs()
@@ -77,8 +75,10 @@ class TestSnapshot(unittest.TestCase):
         with self.assertRaises(TypeError):
             PIVSnapshot(piv_file=pivfile, recording_dtime=[0., 1.])
 
-        snapshot = PIVSnapshot(piv_file=pivfile,
-                               recording_dtime=datetime.datetime(2023, 1, 15, 13, 42, 2, 3))
+        snapshot = PIVSnapshot(
+            piv_file=pivfile,
+            recording_dtime="2023-01-01 10:23:11.0"
+        )
         # with self.assertRaises(h5tbx.errors.StandardAttributeError):
         #     _ = snapshot.to_hdf(piv_attributes={'piv_medium': meta["PIV_MEDIUM"]})
 
@@ -108,8 +108,8 @@ class TestSnapshot(unittest.TestCase):
             self.assertEqual(h5['x'].size, 31)
             self.assertEqual(h5['y'].size, 15)
             self.assertEqual(h5['z'].size, 1)
-            self.assertEqual(str(h5['u'][()].time.values, encoding='utf-8'),
-                             datetime.datetime(2023, 1, 15, 13, 42, 2, 3).isoformat())
+            self.assertEqual(dateutil.parser.parse(str(h5['u'][()].time.values, encoding='utf-8')).isoformat(),
+                             datetime.datetime(2023, 1, 1, 10, 23, 11, 0).isoformat())
             self.assertIn('time', h5['u'][()].coords)
             self.assertEqual(h5['u'].shape, (15, 31))
             self.assertEqual(h5['v'].shape, (15, 31))
@@ -126,7 +126,7 @@ class TestSnapshot(unittest.TestCase):
         # None -> auto search
         openpiv_file = openpiv.OpenPIVFile(
             openpiv_txt_file,
-            user_defined_hdf5_operations=openpiv_add_standard_name_operation,
+            udo=openpiv_add_standard_name_operation,
             parameter_filename=None)
 
         openpiv_snapshot = PIVSnapshot(openpiv_file, recording_dtime=None)

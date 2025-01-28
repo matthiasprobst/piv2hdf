@@ -7,6 +7,7 @@ import warnings
 from functools import wraps
 from typing import List, Union, Dict, Tuple, Callable, Type, Protocol, Optional, runtime_checkable
 
+import dateutil.parser
 import h5py
 import h5rdmtoolbox as h5tbx
 import numpy as np
@@ -42,12 +43,12 @@ def useroperation(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
         hdf_filename = func(*args, **kwargs)
-        user_defined_hdf5_operations = args[0].__get_user_defined_hdf5_operations__()
-        if user_defined_hdf5_operations:
+        udos = args[0].__get_user_defined_hdf5_operations__()
+        if udos:
             with h5tbx.File(hdf_filename, 'r+') as h5:
-                for pc in user_defined_hdf5_operations:
-                    logger.debug(f'Calling user defined hdf5 operation "{pc.__class__.__name__}"...')
-                    pc(h5)
+                for udo in udos:
+                    logger.debug(f'Calling user defined hdf5 operation "{udo.__class__.__name__}"...')
+                    udo(h5)
 
         for pp_func_name in get_config()['postproc']:
             if callable(pp_func_name):
@@ -225,11 +226,13 @@ class PIVParameterInterface:
                         ds.attrs[ak] = av
         return grp
 
+
 @dataclass
 class PIVData:
     data: Dict
     data_attrs: Dict
     root_attrs: Dict
+
 
 @runtime_checkable
 class UserDefinedHDF5Operation(Protocol):
@@ -257,6 +260,10 @@ class PIVFile(abc.ABC):
                  user_defined_hdf5_operations: Optional[
                      Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
                  **kwargs):
+        if user_defined_hdf5_operations is not None:
+            warnings.warn(
+                "Injecting a user defined operation using 'user_defined_hdf5_operations' is deprecated. Use 'udo' instead")
+        udo = kwargs.get("udo", user_defined_hdf5_operations)
         filename = pathlib.Path(filename)
         if not filename.is_file():
             raise TypeError(f'Snapshot file path is not a file: {filename}.')
@@ -275,14 +282,14 @@ class PIVFile(abc.ABC):
             logger.debug(f'Initializing parameter file from filename using class {self.__parameter_cls__.__name__}')
             self._parameter = self.__parameter_cls__(parameter)
 
-        if user_defined_hdf5_operations is None:
-            user_defined_hdf5_operations = []
-        if not isinstance(user_defined_hdf5_operations, (tuple, list)):
-            user_defined_hdf5_operations = [user_defined_hdf5_operations, ]
-        for udo in user_defined_hdf5_operations:
-            if not isinstance(udo, UserDefinedHDF5Operation):
+        if udo is None:
+            udo = []
+        if not isinstance(udo, (tuple, list)):
+            udo = [udo, ]
+        for u in udo:
+            if not isinstance(u, UserDefinedHDF5Operation):
                 raise TypeError(f'Expecting type {UserDefinedHDF5Operation.__name__}, not {type(udo)}')
-        self.user_defined_hdf5_operations = user_defined_hdf5_operations
+        self.udo = udo
         #
         # if callable(post_func):
         #     self.post_func = [post_func, ]
@@ -388,7 +395,7 @@ class PIVSnapshot(PIVConverter):
 
     def __init__(self,
                  piv_file: PIVFile,
-                 recording_dtime: Union[datetime.datetime, None]):
+                 recording_dtime: Optional[Union[datetime.datetime, str, None]] = None):
         super().__init__()
         if not isinstance(piv_file, PIVFile):
             raise TypeError(f'Expecting type {PIVFile.__class__} fro parameter piv_file, not type {type(piv_file)}')
@@ -398,6 +405,9 @@ class PIVSnapshot(PIVConverter):
             logger.debug('No datetime provided!')
             self.recording_dtime = None
         else:
+            if isinstance(recording_dtime, str):
+                recording_dtime = dateutil.parser.parse(recording_dtime)
+
             if not isinstance(recording_dtime, datetime.datetime):
                 raise TypeError('Expecting type int, float or datetime for recording time, '
                                 f'not type {type(recording_dtime)}')
@@ -410,7 +420,7 @@ class PIVSnapshot(PIVConverter):
         return f'<{self.__class__.__name__} of {self.piv_file.__repr__()} >'
 
     def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
-        return self.piv_file.user_defined_hdf5_operations
+        return self.piv_file.udo
 
     def __to_hdf__(self,
                    hdf_filename: pathlib.Path = None,
@@ -513,7 +523,7 @@ class PIVPlane(PIVConverter):
                              f'files: ({len(list_of_piv_files)})!')
 
     def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
-        return self.list_of_piv_files[0].user_defined_hdf5_operations
+        return self.list_of_piv_files[0].udo
 
     def __getitem__(self, item):
         return self.list_of_piv_files[item]
@@ -537,7 +547,8 @@ class PIVPlane(PIVConverter):
                     ] = None,
                     parameter: Union[PIVParameterInterface, str, pathlib.Path] = None,
                     n: int = -1,
-                    prefix_pattern='*[0-9]'):
+                    prefix_pattern='*[0-9]',
+                    **kwargs):
         """PIV Plane initialized from a piv plane folder.
 
         Parameters
@@ -570,7 +581,10 @@ class PIVPlane(PIVConverter):
         -------
         The initialized `PIVPlane` object
         """
-
+        if user_defined_hdf5_operations is not None:
+            warnings.warn(
+                "Injecting a user defined operation using 'user_defined_hdf5_operations' is deprecated. Use 'udo' instead")
+        udo = kwargs.get("udo", user_defined_hdf5_operations)
         plane_directory = pathlib.Path(plane_directory)
         found_snapshot_files = scan_for_timeseries_files(plane_directory,
                                                          pivfile.suffix,
@@ -593,12 +607,11 @@ class PIVPlane(PIVConverter):
                 pivfile(
                     nc,
                     parameter=parameter,
-                    user_defined_hdf5_operations=user_defined_hdf5_operations
+                    udo=udo
                 ) for nc in pbar],
                 time_info)
 
-        return PIVPlane([pivfile(nc, user_defined_hdf5_operations=user_defined_hdf5_operations) for nc in pbar],
-                        time_info, )
+        return PIVPlane([pivfile(nc, udo=udo) for nc in pbar], time_info, )
 
     def __to_hdf__(self,
                    hdf_filename: Union[str, pathlib.Path] = None,
@@ -1129,7 +1142,8 @@ class PIVMultiPlane(PIVConverter):
                      user_defined_hdf5_operations: Optional[
                          Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]
                      ] = None,
-                     n: int = -1) -> "PIVMultiPlane":
+                     n: int = -1,
+                     **kwargs) -> "PIVMultiPlane":
         """init PIVPlane from multiple folders
 
         Parameter
@@ -1143,12 +1157,16 @@ class PIVMultiPlane(PIVConverter):
         n : int, default=-1
             number of snapshots to load. If n=-1, all snapshots are loaded
         """
+        if user_defined_hdf5_operations is not None:
+            warnings.warn(
+                "Injecting a user defined operation using 'user_defined_hdf5_operations' is deprecated. Use 'udo' instead")
+        udo = kwargs.get("udo", user_defined_hdf5_operations)
         if len(time_infos) != len(plane_directories):
             raise ValueError("Number of planes don't match the number of recording (time) information")
         plane_objs = [PIVPlane.from_folder(pathlib.Path(d),
                                            time_info=time_info,
                                            pivfile=pivfile,
-                                           user_defined_hdf5_operations=user_defined_hdf5_operations,
+                                           udo=udo,
                                            n=n) for d, time_info
                       in
                       zip(plane_directories, time_infos)]
