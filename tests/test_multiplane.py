@@ -37,15 +37,15 @@ class TestMPlane(unittest.TestCase):
         # pass wrong folders which will raise an error in the process:
         with self.assertRaises(ValueError):
             _ = PIVPlane.from_folder(plane_dirs_pivview[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile,
-                                     user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
+                                     udo=opernpiv_add_standard_name_operation)
         with self.assertRaises(ValueError):
             _ = PIVPlane.from_folder(plane_dirs_openpiv[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile,
-                                     user_defined_hdf5_operations=add_standard_name_operation)
+                                     udo=add_standard_name_operation)
 
         plane0 = PIVPlane.from_folder(plane_dirs_openpiv[0], time_info=(NOW, 5), pivfile=openpiv.OpenPIVFile,
-                                      user_defined_hdf5_operations=opernpiv_add_standard_name_operation)
+                                      udo=opernpiv_add_standard_name_operation)
         plane1 = PIVPlane.from_folder(plane_dirs_pivview[1], time_info=(NOW, 5), pivfile=pivview.PIVViewNcFile,
-                                      user_defined_hdf5_operations=add_standard_name_operation)
+                                      udo=add_standard_name_operation)
         with self.assertWarns(UserWarning):
             _ = PIVMultiPlane([plane0, plane1])
 
@@ -62,7 +62,7 @@ class TestMPlane(unittest.TestCase):
 
         plane_objs = [PIVPlane.from_folder(d,
                                            pivfile=pivview.PIVViewNcFile,
-                                           user_defined_hdf5_operations=add_standard_name_operation,
+                                           udo=add_standard_name_operation,
                                            time_info=time_info) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
@@ -127,7 +127,7 @@ class TestMPlane(unittest.TestCase):
 
         plane_objs = [PIVPlane.from_folder(d,
                                            pivfile=pivview.PIVViewNcFile,
-                                           user_defined_hdf5_operations=add_standard_name_operation,
+                                           udo=add_standard_name_operation,
                                            time_info=time_info) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
@@ -187,7 +187,7 @@ class TestMPlane(unittest.TestCase):
         plane_objs = [PIVPlane.from_folder(d,
                                            pivfile=pivview.PIVViewNcFile,
                                            time_info=time_info,
-                                           user_defined_hdf5_operations=add_standard_name_operation,
+                                           udo=add_standard_name_operation,
                                            ) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
@@ -236,7 +236,7 @@ class TestMPlane(unittest.TestCase):
         rtfs = [(dt_start1, 10), (dt_start2, 8), (dt_start3, 10)]  # different freq!
         plane_objs = [PIVPlane.from_folder(d,
                                            pivfile=pivview.PIVViewNcFile,
-                                           user_defined_hdf5_operations=add_standard_name_operation,
+                                           udo=add_standard_name_operation,
                                            time_info=time_info) for d, time_info in
                       zip(plane_dirs, rtfs)]
         mplane = PIVMultiPlane(plane_objs)
@@ -252,7 +252,7 @@ class TestMPlane(unittest.TestCase):
         plane_objs = [PIVPlane.from_folder(d,
                                            time_info=(NOW, 5),
                                            pivfile=openpiv.OpenPIVFile,
-                                           user_defined_hdf5_operations=opernpiv_add_standard_name_operation) for d in
+                                           udo=opernpiv_add_standard_name_operation) for d in
                       plane_dirs]
         mplane = PIVMultiPlane(plane_objs)
         hdf_filename = mplane.to_hdf(piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"],
@@ -291,7 +291,7 @@ class TestMPlane(unittest.TestCase):
         mplane = PIVMultiPlane.from_folders(plane_directories=multi_plane_dirs,
                                             time_infos=[(NOW, 5), (NOW, 10), (NOW, 3)],
                                             pivfile=PIVViewNcFile,
-                                            user_defined_hdf5_operations=add_standard_name_operation)
+                                            udo=add_standard_name_operation)
         with self.assertRaises(ValueError):
             mplane.to_hdf(
                 piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
@@ -301,7 +301,7 @@ class TestMPlane(unittest.TestCase):
         mplane = PIVMultiPlane.from_folders(plane_directories=multi_plane_dirs,
                                             time_infos=[(NOW, 5), (NOW, 5.001), (NOW, 4.9999)],
                                             pivfile=PIVViewNcFile,
-                                            user_defined_hdf5_operations=add_standard_name_operation)
+                                            udo=add_standard_name_operation)
         hdf_filename = mplane.to_hdf(
             piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
             atol=0.1, rtol=0.1
