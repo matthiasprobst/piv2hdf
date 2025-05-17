@@ -114,15 +114,15 @@ piv_peak_method:
 
 standard_name:
   target_method: create_dataset
-  validator: $standard_name
+  validator: $standardNameType
   requirements: units
   description: Standard name of the dataset as defined in a respective standard name table. If not available or applicable, the long_name attribute must be given.
   alternative_standard_attribute: long_name
 
 standard_name_table:
   target_method: __init__
-  validator: $standard_name_table
-  default_value: relpath(planar_piv_reduced.yaml)
+  validator: $standardNameTableType
+  default_value: https://zenodo.org/records/15297431/files/Standard_Name_Table_for_Particle_Image_Velocimetry.jsonld
   requirements:
     - standard_name
     - units

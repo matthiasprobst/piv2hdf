@@ -87,7 +87,7 @@ class TestPlane(unittest.TestCase):
                 plane_directory=stereo_plane_dir,
                 time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                 pivfile=PIVViewStereoNcFile,
-                user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                udo=pivview_add_standard_name_operation,
                 parameter=stereo_plane_dir / "plane.cfg"
             )
 
@@ -111,7 +111,7 @@ class TestPlane(unittest.TestCase):
         plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
                                              time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
                                              pivfile=pivview.PIVViewNcFile,
-                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             udo=pivview_add_standard_name_operation,
                                              prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
@@ -137,7 +137,7 @@ class TestPlane(unittest.TestCase):
         plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
                                              time_info=time_vector[0:len(plane.list_of_piv_files)],
                                              pivfile=pivview.PIVViewNcFile,
-                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             udo=pivview_add_standard_name_operation,
                                              prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
@@ -149,7 +149,7 @@ class TestPlane(unittest.TestCase):
             plane = piv2hdf.PIVPlane.from_folder(plane_directory=plane_dir,
                                                  time_info=time_vector[:],
                                                  pivfile=pivview.PIVViewNcFile,
-                                                 user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                                 udo=pivview_add_standard_name_operation,
                                                  prefix_pattern='*[0-9]')
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                         creator=CREATOR),
@@ -169,7 +169,7 @@ class TestPlane(unittest.TestCase):
                 time_info=(datetime.datetime(2023, 10, 1, 12), 10),  # dtime and frequency
                 pivfile=VC7File,
                 parameter=param,
-                # user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                # udo=pivview_add_standard_name_operation,
                 prefix_pattern='*[0-9]')
             hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
                                                             creator=CREATOR),
@@ -184,7 +184,7 @@ class TestPlane(unittest.TestCase):
         plane = piv2hdf.PIVPlane.from_folder(plane_dir,
                                              time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                                              pivfile=pivview.PIVViewNcFile,
-                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             udo=pivview_add_standard_name_operation,
                                              parameter=par)
 
         hdf_filename = plane.to_hdf(piv_attributes=dict(piv_medium='air',
@@ -221,7 +221,7 @@ class TestPlane(unittest.TestCase):
         plane = piv2hdf.PIVPlane.from_folder(plane_dir,
                                              time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                                              pivfile=pivview.PIVViewNcFile,
-                                             user_defined_hdf5_operations=pivview_add_standard_name_operation,
+                                             udo=pivview_add_standard_name_operation,
                                              parameter=par)
 
         hdf_filename = plane.to_hdf(
@@ -253,7 +253,7 @@ class TestPlane(unittest.TestCase):
         plane = piv2hdf.PIVPlane.from_folder(plane_dir,
                                              time_info=(datetime.datetime(2023, 10, 1, 12, 0, 0), 10),
                                              pivfile=openpiv.OpenPIVFile,
-                                             user_defined_hdf5_operations=openpiv_add_standard_name_operation,
+                                             udo=openpiv_add_standard_name_operation,
                                              )
         hdf_filename = plane.to_hdf(
             piv_attributes=dict(piv_medium='air', creator=CREATOR), z=0.51)

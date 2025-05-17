@@ -39,7 +39,7 @@ standard_names:
     units: pixel
   inplane_velocity:
     description: Velocity is a vector quantity. Without a prefix "x", "y" or "z" it
-      indicates the magnitute of the velocity vector. "inplane" indicates that the
+      indicates the magnitude of the velocity vector. "inplane" indicates that the
       velocity magnitude was computed based on the in-plane components only.
     units: m/s
   laser_sheet_thickness:

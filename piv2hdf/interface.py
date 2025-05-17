@@ -94,10 +94,6 @@ def layoutvalidation(func: Callable) -> Callable:
 
                     std_attr.validate(h5.attrs.raw[sa_name], parent=h5)
 
-                if 'standard_name_table' in h5.standard_attributes:
-                    snt = h5.standard_name_table
-                    snt.check_hdf_group(h5)
-
         return hdf_filename
 
     return validation_wrapper

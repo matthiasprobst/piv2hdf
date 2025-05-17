@@ -63,7 +63,7 @@ class TestSnapshot(unittest.TestCase):
         pivview_nc_file = tutorial.PIVview.get_snapshot_nc_files()[0]
         pivfile = pivview.PIVViewNcFile(
             filename=pivview_nc_file,
-            user_defined_hdf5_operations=pivview_add_standard_name_operation
+            udo=pivview_add_standard_name_operation
         )
         self.assertIsInstance(pivfile, PIVFile)
 

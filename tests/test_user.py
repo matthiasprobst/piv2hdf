@@ -28,7 +28,7 @@ class TestUser(unittest.TestCase):
             d,
             time_info=(datetime.datetime.now(), 5),
             pivfile=pivview.PIVViewNcFile,
-            user_defined_hdf5_operations=add_standard_name_operation) for d in
+            udo=add_standard_name_operation) for d in
             plane_dirs]
         mplane = PIVMultiPlane(plane_objs)
         hdf_filename = mplane.to_hdf(piv_attributes=dict(piv_medium='air', creator=CREATOR))
@@ -42,7 +42,7 @@ class TestUser(unittest.TestCase):
         plane_objs = [PIVPlane.from_folder(d,
                                            time_info=(datetime.datetime.now(), 5),
                                            pivfile=pivview.PIVViewNcFile,
-                                           user_defined_hdf5_operations=add_standard_name_operation) for d in
+                                           udo=add_standard_name_operation) for d in
                       plane_dirs]
         mplane = PIVMultiPlane(plane_objs)
         hdf_filename = mplane.to_hdf(piv_attributes=dict(piv_medium='air',

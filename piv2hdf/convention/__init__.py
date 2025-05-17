@@ -4,7 +4,7 @@ from h5rdmtoolbox import Convention
 
 __this_dir__ = pathlib.Path(__file__).parent
 RESOURCES_DIR = __this_dir__.parent / 'resources'
-CONVENTION_FILENAME = RESOURCES_DIR / 'convention/standard_attributes.yaml'
+CONVENTION_FILENAME = RESOURCES_DIR / 'convention/planar_piv_convention.yaml'
 
 
 def init_cv() -> Convention:
