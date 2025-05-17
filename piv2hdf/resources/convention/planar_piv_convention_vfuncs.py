@@ -21,7 +21,7 @@ def __validate_standard_name_table(value, handler, info) -> StandardNameTable:
 
     def __snt_h5attr_repr__(self):
         return str(HttpUrl(value))
-    print(value)
+    
     _snt_filename = dcat.Distribution(downloadURL=HttpUrl(value)).download()
     _snt = parse_table(source=_snt_filename)
     _snt.__h5attr_repr__ = types.MethodType(__snt_h5attr_repr__, _snt)
