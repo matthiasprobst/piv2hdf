@@ -81,7 +81,7 @@ class VC7File(PIVFile):
             "iy": iy,
             "x": x,
             "y": y,
-            "z": float(z),
+            "z": float(z) if z.ndim == 0 else z,  # z can be a scalar or an array
             "reltime": relative_time
         }
         for name, comp in frame.components.items():

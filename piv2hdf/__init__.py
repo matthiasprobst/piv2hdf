@@ -75,12 +75,14 @@ contacts = Contacts()
 def clean_temp_data():
     """cleaning up the tmp directory"""
     for fname in cache.tmp_filenames:
-        try:
-            fname.unlink()
-        except OSError:
-            warnings.warn(f'Could not delete file {fname}. Consider deleting it manually.')
+        if fname.exists():
+            try:
+                fname.unlink()
+            except OSError:
+                warnings.warn(f'Could not delete file {fname}. Consider deleting it manually.')
     for fdir in cache.tmp_dirnames:
-        try:
-            shutil.rmtree(fdir)
-        except OSError:
-            warnings.warn(f'Could not delete directory {fdir}. Consider deleting it manually.')
+        if pathlib.Path(fdir).exists():
+            try:
+                shutil.rmtree(fdir)
+            except OSError:
+                warnings.warn(f'Could not delete directory {fdir}. Consider deleting it manually.')
