@@ -134,3 +134,9 @@ For each software the flags must be converted which these flags:
 
 See [dependency bounds and upgrade guidance](DEPENDENCIES.md) before upgrading
 related packages to a new major release.
+
+## Local work tracking
+
+Use `.work/` for local work items and investigation notes. Its contents are
+ignored by Git and must not be committed or force-added. Keep accepted project
+documentation in the regular documentation files.
