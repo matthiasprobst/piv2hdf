@@ -129,3 +129,8 @@ For each software the flags must be converted which these flags:
 
 - `netCDF4-1.6.0` and `pytest-7.1.3` don't work together! Raises bizarre error including "frozen_import..."
 - `netCDF4-1.6.0` only works up to `python 3.8` (info from 20.10.2022)
+
+## Dependency maintenance
+
+See [dependency bounds and upgrade guidance](DEPENDENCIES.md) before upgrading
+related packages to a new major release.
