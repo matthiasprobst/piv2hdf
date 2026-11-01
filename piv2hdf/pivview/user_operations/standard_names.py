@@ -1,7 +1,7 @@
 import pathlib
 
 import h5rdmtoolbox as h5tbx
-from ssnolib.namespace import SSNO
+from piv2hdf.standard_names import SSNO, TABLE_URL, load_table
 
 from piv2hdf.interface import PIV_PARAMETER_GRP_NAME, PIV_PARAMETER_ATTRS_NAME
 from piv2hdf.piv_params import PIV_PeakFitMethod, PIV_METHOD
@@ -18,7 +18,7 @@ class AddStandardNameOperation:
     def __call__(self, h5: h5tbx.File):
         """pivview post function. this is specific for a convention"""
         for name, ds in h5.items():
-            if name in PIVVIEW_TRANSLATION:
+            if name in PIVVIEW_TRANSLATION and PIVVIEW_TRANSLATION[name] in load_table(TABLE_URL):
                 ds.attrs['standard_name', SSNO.standardName] = PIVVIEW_TRANSLATION[name]
 
         def _update_fields(grp: h5tbx.Group):

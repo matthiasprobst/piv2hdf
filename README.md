@@ -79,7 +79,7 @@ from datetime import datetime
 time_info = (datetime(2023, 11, 6, 12, 13, 4), 4000)
 
 plane_data_dir = 'data'
-plane = PIVPlane.from_plane(plane_directory=plane_data_dir,
+plane = PIVPlane.from_folder(plane_directory=plane_data_dir,
                             time_info=time_info,
                             pivfile=PIVViewStereoNcFile)
 plane.to_hdf()
@@ -87,7 +87,7 @@ plane.to_hdf()
 
 The class `PIVPlane` is the interface class for PIV plane data. You have to provide the implemented PIV software class,
 in this case  `PIVViewStereoNcFile`. Also, the time vector or the recording frequency must be
-provided (`recording_time_or_frequency`).
+provided through `time_info`.
 
 The module `pivview` provides the class `PIVViewNcFile` and `PIVViewStereoNcFile` which allows working with nc files
 either containing 2D2C or 3D3C (stereo) data.
@@ -103,9 +103,11 @@ Configurations are associated with `PIVSnaphsot`, `PIVPlane` and `PIVMultiPlane`
 
 ```python
 # Set the compression level to 9
-plane.config['compression'] = 9
+from piv2hdf import set_config
+set_config(compression='gzip', compression_opts=9)
 
-print(plane.config)
+from piv2hdf import get_config
+print(get_config())
 ```
 
 ### PIV Flags
@@ -134,6 +136,36 @@ For each software the flags must be converted which these flags:
 
 See [dependency bounds and upgrade guidance](DEPENDENCIES.md) before upgrading
 related packages to a new major release.
+
+## Scientific conversion contract (2.0.0a3)
+
+This alpha changes results and metadata to correct scientific interpretation.
+See [migration notes](MIGRATION.md) before comparing outputs with older files.
+The default PIV standard-name table is bundled unchanged for offline validation.
+Conversions use h5rdmtoolbox 2.8.3 or newer within the 2.x series.
+
+- Coordinates keep their units; a z override updates both value and unit.
+- A plane requires consistent variables, units and grids in every snapshot.
+- PIVview masking modes exclude invalid flag combinations. `raw_*` datasets
+  preserve source fields/flags; `valid` identifies usable vectors. Interpolation
+  fills interior holes only and records which vectors it changes.
+- Multiplane conversion rejects unequal lengths unless
+  `trim_time_vectors=True` is supplied. Outputs record discarded counts and
+  original relative times. Combining separately acquired planes does not make
+  them a simultaneous volume.
+- `compute_time_averages()` computes a sample arithmetic mean by default,
+  excludes invalid/nonfinite observations and writes valid-sample counts.
+  Call it with `averaging='duration'` for a trapezoidal duration-weighted mean;
+  intervals with missing endpoints are excluded rather than bridged.
+
+Validate a completed file by setting `convention='planar_piv'` in `set_config`.
+Validation checks nested datasets as well as root metadata and raises by default.
+For warnings, use `raise_layout_validation_error=False`. Settings returned by
+`get_config()` are independent copies; use `set_config(...)` to change defaults.
+
+Numerical reference tests verify software behavior, not experimental accuracy.
+Calibration quality, statistical convergence, uncertainty and physical assumptions
+such as incompressibility require information about the actual experiment.
 
 ## Local work tracking
 

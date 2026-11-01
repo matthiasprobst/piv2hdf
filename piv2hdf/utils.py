@@ -1,5 +1,6 @@
 import pathlib
-from itertools import count
+import os
+import tempfile
 from typing import Union, Tuple
 
 import numpy as np
@@ -8,8 +9,6 @@ from pint import Unit, Quantity
 
 from . import cache, user
 
-_filecounter = count()
-_dircounter = count()
 time_dimensionality = Unit('s').dimensionality
 length_dimensionality = Unit('m').dimensionality
 
@@ -64,7 +63,7 @@ def is_time(unit):
     if unit == 's':
         return True
     else:
-        return unit.dimensionality == time_dimensionality
+        return Unit(str(unit)).dimensionality == time_dimensionality
 
 
 def is_length(unit):
@@ -74,7 +73,20 @@ def is_length(unit):
     if unit == 'm':
         return True
     else:
-        return unit.dimensionality == length_dimensionality
+        return Unit(str(unit)).dimensionality == length_dimensionality
+
+
+def _temporary_location(prefix):
+    """Retain nested-prefix support while reserving names atomically."""
+    relative = pathlib.Path(prefix)
+    if relative.is_absolute() or '..' in relative.parts:
+        raise ValueError('Temporary prefixes must remain inside the temporary directory')
+    if prefix.endswith(('/', '\\')):
+        directory, name = user.TEMPORARY_USER_DIRECTORY / relative, ''
+    else:
+        directory, name = user.TEMPORARY_USER_DIRECTORY / relative.parent, relative.name
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory, name
 
 
 def generate_temporary_filename(prefix='tmp', suffix: str = '') -> pathlib.Path:
@@ -92,9 +104,10 @@ def generate_temporary_filename(prefix='tmp', suffix: str = '') -> pathlib.Path:
     tmp_filename: pathlib.Path
         The generated temporary filename
     """
-    _filename = user.TEMPORARY_USER_DIRECTORY / f"{prefix}{next(_filecounter)}{suffix}"
-    while _filename.exists():
-        _filename = user.TEMPORARY_USER_DIRECTORY / f"{prefix}{next(_filecounter)}{suffix}"
+    directory, prefix = _temporary_location(prefix)
+    descriptor, filename = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=directory)
+    os.close(descriptor)
+    _filename = pathlib.Path(filename)
     cache.tmp_filenames.append(_filename)
     return _filename
 
@@ -112,10 +125,8 @@ def generate_temporary_directory(prefix='tmp') -> pathlib.Path:
     tmp_filename: pathlib.Path
         The generated temporary filename
     """
-    _dir = user.TEMPORARY_USER_DIRECTORY / f"{prefix}{next(_dircounter)}"
-    while _dir.exists():
-        _dir = user.TEMPORARY_USER_DIRECTORY / f"{prefix}{next(_dircounter)}"
-    _dir.mkdir(parents=True)
+    directory, prefix = _temporary_location(prefix)
+    _dir = pathlib.Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
     cache.tmp_dirnames.append(_dir)
     return _dir
 

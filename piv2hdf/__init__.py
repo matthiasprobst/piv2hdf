@@ -13,15 +13,13 @@ from . import cache
 from ._logger import logger, set_loglevel
 from ._version import __version__
 from .config import set_config, set_pivattrs, get_config, reset_pivattrs
-from .convention import cv, CONVENTION_FILENAME
+from .convention import CONVENTION_FILENAME
 from .interface import PIVSnapshot, PIVPlane, PIVMultiPlane, UserDefinedHDF5Operation
 from .user import USER_DIRECTORY
 
 __all__ = ['PIVSnapshot', 'PIVPlane', 'PIVMultiPlane', 'logger', 'set_loglevel',
            'get_config', 'set_config', 'set_pivattrs', 'reset_pivattrs', 'UserDefinedHDF5Operation',
            '__version__', 'CONVENTION_FILENAME', 'cv']
-
-h5tbx.use(None)
 
 __this_dir__ = pathlib.Path(__file__).parent
 _data_dir = __this_dir__ / 'data'
@@ -35,10 +33,9 @@ class Contacts:
         self.contacts_filename = USER_DIRECTORY / 'contacts.yaml'
         if self.contacts_filename.exists():
             with open(self.contacts_filename, 'r') as f:
-                self.registered_contacts = yaml.safe_load(f)
+                self.registered_contacts = yaml.safe_load(f) or {}
         else:
             self.registered_contacts = {}
-        self.save()
 
     def __contains__(self, item):
         return item in self.registered_contacts
@@ -54,6 +51,7 @@ class Contacts:
 
     def save(self):
         """Write the yaml file to user directory"""
+        self.contacts_filename.parent.mkdir(parents=True, exist_ok=True)
         with open(self.contacts_filename, 'w') as f:
             yaml.safe_dump(self.registered_contacts, f)
 
@@ -69,6 +67,13 @@ class Contacts:
 
 
 contacts = Contacts()
+
+
+def __getattr__(name):
+    if name == 'cv':
+        from .convention import init_cv
+        return init_cv()
+    raise AttributeError(name)
 
 
 @atexit.register
