@@ -67,11 +67,11 @@ class PIVviewParamFile(PIVParameterInterface):
         _cfg = configparser.ConfigParser()
         _cfg.read_dict(self.param_dict)
         with open(filename, 'w') as f:
-            self._cfg.write(f)
+            _cfg.write(f)
 
     def from_hdf(self, grp: h5py.Group) -> None:
         """Read from HDF group"""
-        pass
+        raise NotImplementedError('Reading parameter files from HDF5 is not implemented')
 
 
 class PivViewConfigFile(PIVviewParamFile):

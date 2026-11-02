@@ -1,20 +1,10 @@
 import logging
 import pathlib
+import os
 from logging.handlers import RotatingFileHandler
 from typing import Union
 
-import appdirs
-
 name = __package__
-
-_logdir = appdirs.user_log_dir(name)
-_log = pathlib.Path(_logdir)  # Currently, this is unversioned
-
-try:
-    pathlib.Path.mkdir(_log, parents=True)
-    _logFolderMsg = f'{name} log folder created at {_logdir}'
-except FileExistsError:
-    _logFolderMsg = f'{name} log folder available: {_logdir}'
 
 # Initialize logger, set high level to prevent ipython debugs. File level is
 # set below
@@ -26,19 +16,19 @@ _formatter = logging.Formatter(
     '%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%Y-%m-%d_%H:%M:%S')
 
-_file_handler = RotatingFileHandler(_log / f'{name}.log', maxBytes=int(5e6), backupCount=2)
-_file_handler.setLevel(DEFAULT_LOGGING_LEVEL)
-_file_handler.setFormatter(_formatter)
+if os.environ.get('PIV2HDF_LOG_DIR'):
+    log_directory = pathlib.Path(os.environ['PIV2HDF_LOG_DIR'])
+    log_directory.mkdir(parents=True, exist_ok=True)
+    _file_handler = RotatingFileHandler(log_directory / f'{name}.log', maxBytes=int(5e6), backupCount=2)
+    _file_handler.setLevel(DEFAULT_LOGGING_LEVEL)
+    _file_handler.setFormatter(_formatter)
+    logger.addHandler(_file_handler)
 
 _stream_handler = logging.StreamHandler()
 _stream_handler.setLevel(DEFAULT_LOGGING_LEVEL)
 _stream_handler.setFormatter(_formatter)
 
-logger.addHandler(_file_handler)
 logger.addHandler(_stream_handler)
-
-# Log messages collected above
-logger.debug(_logFolderMsg)
 
 
 def set_loglevel(level: Union[str, int]):

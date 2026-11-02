@@ -1,5 +1,6 @@
 """PIV FLAGS"""
 import enum
+import numpy as np
 
 
 # FLAGS = {'INACTIVE': 0,
@@ -46,3 +47,17 @@ flag_translation_dict = {
         2: Flags.INTERPOLATED
     }
 }
+
+
+def valid_vectors(values, mode='slack'):
+    """Select documented flag combinations; reject invalid and unknown bits.
+
+    Strict accepts ACTIVE; sepeaks also accepts REPLACED; slack additionally
+    accepts FILTERED, INTERPOLATED and MANUALEDIT. Inactive is always rejected.
+    """
+    accepted = {'strict': 1, 'sepeaks': 1 | 64, 'slack': 1 | 16 | 32 | 64 | 128}
+    if mode not in accepted:
+        raise ValueError(f'Unknown masking mode: {mode}')
+    values = np.asarray(values, dtype=np.uint64)
+    allowed = np.uint64(accepted[mode])
+    return ((values & allowed) != 0) & ((values & ~allowed) == 0)

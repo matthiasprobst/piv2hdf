@@ -1,0 +1,575 @@
+{
+    "@context": {
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "dcterms": "http://purl.org/dc/terms/",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
+        "ssno": "https://matthiasprobst.github.io/ssno#",
+        "schema": "https://schema.org/",
+        "foaf": "http://xmlns.com/foaf/0.1/",
+        "m4i": "http://w3id.org/nfdi4ing/metadata4ing#",
+        "prov": "http://www.w3.org/ns/prov#",
+        "dcat": "http://www.w3.org/ns/dcat#"
+    },
+    "@type": "ssno:StandardNameTable",
+    "skos:changeNote": "Version 1.0.1 fixes typos",
+    "dcterms:title": "Standard Name Table for Particle Image Velocimetry data",
+    "dcterms:hasVersion": "1.0.1",
+    "dcterms:description": "This table provides standard names for the description of PIV data. It is an initial version covering the most basic properties of planar PIV data.",
+    "identifier": "https://doi.org/10.5281/zenodo.15297431",
+    "dcterms:modified": "2025-04-28",
+    "prov:qualifiedAttribution": [
+        {
+            "@type": "prov:Attribution",
+            "prov:agent": {
+                "@type": "prov:Person",
+                "foaf:firstName": "Matthias",
+                "foaf:lastName": "Probst",
+                "m4i:orcidId": "https://orcid.org/0000-0001-8729-0482",
+                "@id": "https://orcid.org/0000-0001-8729-0482"
+            },
+            "@id": "_:Ndbd0281f57f94b18b7c51d014b6ee240"
+        },
+        {
+            "@type": "prov:Attribution",
+            "prov:agent": {
+                "@type": "prov:Person",
+                "foaf:firstName": "Balazs",
+                "foaf:lastName": "Pritz",
+                "m4i:orcidId": "https://orcid.org/0000-0001-9560-500X",
+                "@id": "https://orcid.org/0000-0001-9560-500X"
+            },
+            "@id": "_:N65637aedfb544bc9a9762b492e164fbf"
+        }
+    ],
+    "ssno:standardNames": [
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "piv_correlation_coefficient",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The correlation coefficient is a measure for the quality of the PIV evaluation. It is computed based on the cross-correlation of the interrogation windows.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N35ff14316d584e06b03592fce9303ce0"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "piv_first_peak_correlation_coefficient",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The correlation coefficient is a measure for the quality of the PIV evaluation. It is computed based on the cross-correlation of the interrogation windows. The first peak correlation coefficient is the correlation coefficient of the first peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N3518fd7af898448f97c28df4e7cbc21c"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "piv_second_peak_correlation_coefficient",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The correlation coefficient is a measure for the quality of the PIV evaluation. It is computed based on the cross-correlation of the interrogation windows. The first peak correlation coefficient is the correlation coefficient of the second peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nddf32fcdc08840ecbaa0e991dcda7ac9"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "piv_third_peak_correlation_coefficient",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The correlation coefficient is a measure for the quality of the PIV evaluation. It is computed based on the cross-correlation of the interrogation windows. The first peak correlation coefficient is the correlation coefficient of the third peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N7b6fe36d6fab4d68be1a2c2c1e9cf737"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "first_peak_x_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. X indicates the component in x-axis direction. This component is an in-plane component. The displacement is computed based on the first peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N0f03ef812660441d825635710bf32bc6"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "first_peak_y_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. Y indicates the component in y-axis direction. This component is an in-plane component. The displacement is computed based on the first peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nde13b2681b4e486898d207da195f5950"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_derivative_of_x_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name x_derivative_of_x_velocity denotes the derivative of the x component of the velocity vector with respect to the x coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N3780c8445e714f6fbb76fb56ba8dbfdf"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_derivative_of_y_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name x_derivative_of_y_velocity denotes the derivative of the y component of the velocity vector with respect to the x coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N5baf0bf9f3674d74b48c70c871de2cf6"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_derivative_of_z_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name x_derivative_of_z_velocity denotes the derivative of the z component of the velocity vector with respect to the x coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N5e1a7b6f740a4332afe93e559560a8bb"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_derivative_of_x_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name y_derivative_of_x_velocity denotes the derivative of the x component of the velocity vector with respect to the y coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N258fd12f793e4f58b3dab2505e5252f7"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_derivative_of_y_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name y_derivative_of_y_velocity denotes the derivative of the y component of the velocity vector with respect to the y coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N8f80202567d74939bea7768e6ddf5771"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_derivative_of_z_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name y_derivative_of_z_velocity denotes the derivative of the z component of the velocity vector with respect to the y coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N91d39e877f694b77a09f5741cd9a6ce1"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "z_derivative_of_x_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name z_derivative_of_x_velocity denotes the derivative of the x component of the velocity vector with respect to the z coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N2ab8e648caa048b8a36931f825fae790"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "z_derivative_of_y_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name z_derivative_of_y_velocity denotes the derivative of the y component of the velocity vector with respect to the z coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N6b7c5a3b1bad4696b763e75cc64a2bc1"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "z_derivative_of_z_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-SEC",
+            "ssno:description": "The standard name z_derivative_of_z_velocity denotes the derivative of the z component of the velocity vector with respect to the z coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N4300aa42657d4f3d87c99c6970fa9f5f"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_particle_density",
+            "ssno:unit": "https://matthiasprobst.github.io/pivmeta#PER-PIXEL",
+            "ssno:description": "Number of particle images per pixel. Equals the number of particles divided by the image area.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nd02db398ae0043b79d8f857793634257"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_density",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The image density is computed based on the source density $N_s$ and the interrogation window size.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N75186ff4c4334a3c89b148f4819ef86f"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_particle_diameter",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "The diameter of an image particle approximated by a circular Gaussian intensity bell, where the diameter is defined at the e-2 intensity, thus the particle diameter is equal to 4 sigma of the Gaussian distribution. Note, that there might be other definitions, too, however, this one is the most common one in literature.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N22c4d6f9fa36498b9ec273c28c3f3769"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "arithmetic_mean_of_image_particle_diameter",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Arithmetic mean of the image particle diameters in the flow. The diameter of an image particle approximated by a circular Gaussian intensity bell, where the diameter is defined at the e-2 intensity, thus the particle diameter is equal to 4 sigma of the Gaussian distribution. Note, that there might be other definitions, too, however, this one is the most common one in literature.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nca2459b808db45ef877db4e049915a14"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "standard_deviation_of_image_particle_diameter",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Standard deviation of the image particle diameters in the flow. The diameter of an image particle approximated by a circular Gaussian intensity bell, where the diameter is defined at the e-2 intensity, thus the particle diameter is equal to 4 sigma of the Gaussian distribution. Note, that there might be other definitions, too, however, this one is the most common one in literature.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Naeceaf18ca504a678564166250dc5c36"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_index",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "Index of a PIV image collection. Starts at 1 and ends at the number of images N.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nce1b024a91314fad9f93285b941388f7"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "inplane_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "The standard name inplane_velocity denotes the magnitude of a two-dimensional velocity vector, which . Plane is spanned by the x and y axis of PIV plane. The PIV plane is the plane illuminated by the laser. The component in the third direction is called out-of-plane-velocity.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N5c6c8fee21fe4039a2cb37754a4d784a"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_inplane_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "The standard name inplane_velocity denotes the magnitude of a two-dimensional velocity vector. Plane is spanned by the x and y axis of PIV plane. The PIV plane is the plane illuminated by the laser. x indicates a vector component along the grid x-axis, positive with increasing x.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N7b7d4fe0af204356980769fdf924f63c"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_inplane_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "The standard name inplane_velocity denotes the magnitude of a two-dimensional velocity vector. Plane is spanned by the x and y axis of PIV plane. The PIV plane is the plane illuminated by the laser. y indicates a vector component along the grid y-axis, positive with increasing x.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nb0bdf4d8c0f44667b20ef4737147630b"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "model_laser_sheet_thickness",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The width of the laser sheet illuminating the seeding particles as used in a model (synthetic PIV. The width is defined at the e-2 intensity of a Gaussian bell curve. However, the laser beam shape must not be Gaussian, but can be more top-hat-like. The shape is defined by the shap factor (laser_sheet_shape_factor).",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N73b3a990ee9b43af987da81acad18e0e"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "laser_sheet_thickness",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The laser sheet thickness used in a measurement. For a model laser sheet thickness, use model_laser_sheet_thickness. The use of laser_sheet_thickness has no clear definition, but is where the intensity of the laser sheet drops significantly.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N7cd62419c1ea4379b19da2992c4eae65"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "model_laser_sheet_shape_factor",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The shape factor used to model the expanded laser beam. The shape factor is introduced in 'Particle Image Velocimetry A Practical Guide' by Raffel et al. (2018). It deforms a Gaussian beam. High values result in a more top-hat-like beam, while low values result in a more Gaussian-like beam.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N8cd151cbd9874e90bbd4d22ce1450b85"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "arithmetic_mean_of_seeding_particle_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The arithmetic mean of the diameter of the seeding particles.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N1def21f80c974803a2d2403ae9b8f230"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "standard_deviation_of_seeding_particle_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The standard deviation of the seeding particles sizes.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N2c1023af4e9b407e86d282f57f85e845"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "number_of_particles",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "Number of seeding particles in the image or field of interest. See also image_particle_density.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Ncc87ffd863b749d58a4895e51f427d61"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "saturated_pixel_number",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "Number of pixels in the field of interest that exceed the maximal senor count.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Ncca8e0abb93c4d89803be5285341f84a"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "second_peak_x_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. X indicates the component in x-axis direction. This component is an in-plane component. The displacement is computed based on the second peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N3e22ad2816ad4b1a9e0fe7a1dad15c69"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "second_peak_y_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. Y indicates the component in y-axis direction. This component is an in-plane component. The displacement is computed based on the second peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N6ffafa205e9d44b1be6ca57c842fe293"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "third_peak_x_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. X indicates the component in x-axis direction. This component is an in-plane component. The displacement is computed based on the third peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nec05d7317baf49a0ade4dd041635c689"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "third_peak_y_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity. Y indicates the component in y-axis direction. This component is an in-plane component. The displacement is computed based on the third peak of the cross-correlation function.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N7c0d093a704d4c52bb04db725496a534"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "relative_time",
+            "ssno:unit": "http://qudt.org/vocab/unit/SEC",
+            "ssno:description": "Recording time since start of recording.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N2e638af00d084ef38f1216187b9adfac"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "magnitude_of_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "Velocity is defined as a three-dimensional velocity vector. Magnitude denotes the length of the vector.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N4f4094140b5746b4948ea8c790e5fa0c"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "Velocity is defined as a three-dimensional velocity vector. x indicates a vector component along the grid x-axis, positive with increasing x.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nbaa5b243cfd74ba8ac67855dca346f10"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "Velocity is defined as a three-dimensional velocity vector. y indicates a vector component along the grid y-axis, positive with increasing y.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nb09ab3ff31824ec3a79830adc5d193bc"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "z_velocity",
+            "ssno:unit": "http://qudt.org/vocab/unit/M-PER-SEC",
+            "ssno:description": "Velocity is defined as a three-dimensional velocity vector. z indicates a vector component along the grid y-axis, positive with increasing z.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N62ab8842af2f4dec948b2e718eb43e8d"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "PIV pixel displacement magnitude in the image plane.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N2f1472390e0140cd963c8a8a711cb161"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Displacement is a vector quantity and describes the particle displacement in pixels in the image plane. x indicates a vector component along the grid x-axis, positive with increasing x.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N811744d923e647ca8f4a5b6068f11e23"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_displacement",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "y indicates a vector component along the grid y-axis, positive with increasing y.Displacement is a vector quantity and describes the particle displacement in pixels in the image plane.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N9865afdfb9ab4dd58e934713093b6992"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "final_interrogation_window_overlap_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width and height of a square final PIV interrogation window overlap.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nb637cdbe1ea3423c9b195a18d36978f2"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_final_interrogation_window_overlap_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width of a final PIV interrogation window overlap.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N43df9526909d481fa985d245183d8cb1"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "final_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width and height of a square final PIV interrogation window.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N39c53cd6ea424979936e8e387320bb53"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_final_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width of a final PIV interrogation window.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nf50a1ad34a3f4c5590d8c780dfd88b97"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "initial_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width and height of a square initial PIV interrogation window (in case of a multi-grid PIV algorithm).",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N84d6a1a5462f42298bb6eda3ba804cce"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_initial_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Width of a initial PIV interrogation window (in case of a multi-grid PIV algorithm).",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N89d0dcc535b64f2f98ada4fc152f4586"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_pixel_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Pixel coordinate in horizontal direction. It depicts the position of each velocity vector in the result data in pixel unit, where the origin is at the lower left. The coordinate is aligned with the physical coordinate axis (x_coordinate), not the image coordinate (x_image_coordinate) which has its origin in the top left of the image.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N20fce03a575a45e1980eda8389402fdc"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_final_interrogation_window_overlap_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "The height of a final PIV interrogation window overlap.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N6a1e47e80bf047b9a692858d66384e40"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_final_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "The height of the final PIV interrogation window.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N95a213b173df4e64a0aa28c00d32be56"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_initial_interrogation_window_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Height of the initial PIV interrogation window (in case of a multi-grid PIV algorithm).",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nd2bfd29639184d20887297da70a60a3a"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_pixel_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "Pixel coordinate in vertical direction. It depicts the position of each velocity vector in the result data in pixel unit, where the origin is at the lower left. The coordinate is aligned with the physical coordinate axis (y_coordinate), not the image coordinate (y_image_coordinate) which has its origin in the top left of the image.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N2dd3bec1095f4914988f9e7a55b287d8"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_image_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "The spatial coordinate in horizontal direction. The origin is at the top left.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N773ecba48a8f4ed388b5ef2eebe110cc"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_origin_offset",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The physical offset of the x_image_origin_coordinate in the global coordinate system.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Need12b49f0224dcc9cdfac0faf693c65"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_image_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/PIXEL",
+            "ssno:description": "The spatial coordinate in vertical direction. The origin is in the top left.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N87109b55876f40b2b288be5da3a66075"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_origin_offset",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The physical offset of the y_image_origin_coordinate in the global coordinate system.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N4b7c51e2f0cc45b88baacaa84ca35f89"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "x_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The spatial coordinate in horizontal direction in the global coordinate system, which is aligned with the sensor orientation. The sensor width therefore corresponds to sensor size in direction of x_coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Ncd2fe7fd971945918199e086cba1bb72"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "y_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The spatial coordinate in vertical direction in the global coordinate system, which is aligned with the sensor orientation. The sensor width therefore corresponds to sensor size in direction of y_coordinate.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N211867658d524dc4bfd04db6248a0694"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "z_coordinate",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The spatial coordinate in depth direction in the global coordinate system and hence perpendicular to the sensor plane.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N5b60c13d46fe40638c38119df7a03e34"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "signal_to_noise_ratio",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The signal to noise ratio of the PIV evaluation.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nd932dd96128d441fbbb4ad1c74804251"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "least_square_residual_of_z_displacement_reconstruction",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The least square residual of the z displacement reconstruction in stereo PIV.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nd78af451830747dfa92a788b11a62813"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "piv_scaling_factor",
+            "ssno:unit": "http://qudt.org/vocab/unit/PER-M",
+            "ssno:description": "Image scaling factor.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nee880ed984cc4b41b16832c1b449b637"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_filter_kernel_size",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The size of the image filter kernel.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nba0edcc7c5764c469243d4454e4c40b4"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "ccd_width",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The width of a ccd pixel.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N6be920c790c74bb681a33dd27834c45c"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "ccd_height",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The height of a ccd pixel.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nbf8a2a0f1884418fad849cb96f9072c5"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "focal_length",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The focal length. See also https://www.wikidata.org/wiki/Q193540.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Naaaa330cd3d947e1934fabc59839d3db"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "sensor_pixel_width",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The width of the sensor in pixel.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N604dbc5c900c4c70a06d20bc020c8795"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "sensor_pixel_height",
+            "ssno:unit": "http://qudt.org/vocab/unit/M",
+            "ssno:description": "The height of the sensor in pixel.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Ne865f8ced89c48399457cc32366d6376"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "sensor_pixel_width_fill_factor",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "Fill factor in horizontal direction. The fill factor of an image sensor array is the ratio of a pixel's light sensitive area to its total area. See https://en.wikipedia.org/wiki/Fill_factor_(image_sensor). The value must be between 0 and 1, where 1 depicts a 100 percent. The higher the fill factor, the more sensitive the sensor.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nb0eacedef72e482193413b1aa9c371dd"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "sensor_pixel_height_fill_factor",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "Fill factor in vertical direction. The fill factor of an image sensor array is the ratio of a pixel's light sensitive area to its total area. See https://en.wikipedia.org/wiki/Fill_factor_(image_sensor). The value must be between 0 and 1, where 1 depicts a 100 percent. The higher the fill factor, the more sensitive the sensor.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Ne0d73878f2df4913a6098792c6562e29"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "image_bit_depth",
+            "ssno:unit": "http://qudt.org/vocab/unit/UNITLESS",
+            "ssno:description": "The pixel depth of an image in bits. Typical bit depth are 8 bits or 16 bits.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/Nc46ba1e2a601463c81bf8a7e72d41d18"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "optical_magnification",
+            "ssno:unit": "https://matthiasprobst.github.io/pivmeta#MilliM-PER-PIXEL",
+            "ssno:description": "The optical magnification of the imaging system.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N65096a531927407389625c8775872da9"
+        },
+        {
+            "@type": "ssno:StandardName",
+            "ssno:standardName": "laser_pulse_delay",
+            "ssno:unit": "http://qudt.org/vocab/unit/SEC",
+            "ssno:description": "Time between two laser pulses.",
+            "@id": "https://doi.org/10.5281/zenodo.14175299/N8343c457a58b4fe7aa630984e967d7b6"
+        }
+    ],
+    "ssno:hasDomainConceptSet": [],
+    "dcterms:subject": "https://www.wikidata.org/wiki/Q1756248",
+    "@id": "https://doi.org/10.5281/zenodo.15297431"
+}

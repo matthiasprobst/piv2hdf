@@ -5,26 +5,18 @@ import pathlib
 from datetime import datetime
 from typing import Optional, List, Union
 
-import h5py
 import numpy as np
 
 from piv2hdf import UserDefinedHDF5Operation
 from piv2hdf.interface import PIVParameterInterface, PIVData
 from . import parameter as davis_parameter
-from .const import DAVIS_SOFTWARE, DEFAULT_DATASET_LONG_NAMES
-from ..config import get_config
+from .const import DAVIS_SOFTWARE
 from ..interface import PIVFile
-from ..pivview.const import IGNORE_ATTRS, DIM_NAMES
-from ..time import create_recording_datetime_dataset
 
 try:
     import lvpyio as lv
 except ImportError:
     raise ImportError('Package "lvpyio" not installed which is needed to read Davis files')
-try:
-    import h5rdmtoolbox as h5tbx
-except ImportError:
-    raise ImportError('Package "h5rdmtoolbox" not installed which is needed to write HDF files from Davis files')
 
 
 def _compute_physical_quantity(data, offset, slope):
@@ -44,7 +36,10 @@ class VC7File(PIVFile):
                  **kwargs
                  ):
         self.filename = pathlib.Path(filename)
-        assert self.filename.exists(), FileNotFoundError(f'File {self.filename} not found!')
+        if not self.filename.is_file():
+            raise FileNotFoundError(f'File {self.filename} not found!')
+        if parameter is None:
+            parameter = davis_parameter.DavisParameterFile(self.filename)
         self._frame = None
         self._attrs = None
         self._variables = None
@@ -53,8 +48,6 @@ class VC7File(PIVFile):
 
     def read(self, relative_time, **kwargs) -> PIVData:
         """Read data from file."""
-        build_coord_datasets = kwargs.get("build_coord_datasets", True)
-
         buffer = lv.read_buffer(str(self.filename))
 
         frame = buffer[0]
@@ -68,12 +61,12 @@ class VC7File(PIVFile):
         iy = np.arange(0, ny)
 
         data_attrs = {
-            "x": dict(unit="m", description=scales.x.description),
-            "y": dict(unit="m", description=scales.y.description),
-            "ix": dict(unit="", description="Index in x-direction"),
-            "iy": dict(unit="", description="Index in y-direction"),
-            "z": dict(unit="m", description=scales.z.description),
-            "reltime": dict(unit="s", description="Recording time since start"),
+            "x": dict(units=scales.x.unit, long_name=scales.x.description or 'x coordinate'),
+            "y": dict(units=scales.y.unit, long_name=scales.y.description or 'y coordinate'),
+            "ix": dict(units="", long_name="Index in x-direction"),
+            "iy": dict(units="", long_name="Index in y-direction"),
+            "z": dict(units=scales.z.unit, long_name=scales.z.description or 'z coordinate'),
+            "reltime": dict(units="s", long_name="Recording time since start"),
         }
 
         data = {
@@ -87,13 +80,16 @@ class VC7File(PIVFile):
         for name, comp in frame.components.items():
             if name not in ("x", "y", "ix", "iy", "reltime"):
                 data_attrs[name] = dict(
-                    unit=comp.scale.unit,
-                    description=comp.scale.description,
-                    slope=comp.scale.slope,
-                    offset=comp.scale.offset
+                    units=comp.scale.unit,
+                    long_name=comp.scale.description or name,
+                    source_slope=comp.scale.slope,
+                    source_offset=comp.scale.offset,
+                    calibration_applied=True
                 )
-                data[name] = comp.planes[0]
-        return PIVData(data, data_attrs, {})
+                data[name] = _compute_physical_quantity(comp.planes[0], comp.scale.offset, comp.scale.slope)
+                data[f'raw_{name}'] = comp.planes[0]
+                data_attrs[f'raw_{name}'] = dict(units='', long_name=f'Raw source values for {name}')
+        return PIVData(data, data_attrs, {'software': json.dumps(DAVIS_SOFTWARE)})
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
@@ -101,87 +97,7 @@ class VC7File(PIVFile):
                recording_dtime: Union[datetime, List[datetime]],
                z: Union[str, float, None] = None,
                **kwargs) -> pathlib.Path:
-        """Convert file to HDF5 format."""
-        if hdf_filename is None:
-            _hdf_filename = pathlib.Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
-        else:
-            _hdf_filename = hdf_filename
-
-        pivdata = self.read(relative_time, **kwargs)
-        ny, nx = pivdata.data['y'].size, pivdata.data['x'].size
-        with h5py.File(_hdf_filename, "w") as main:
-            main.attrs['software'] = json.dumps(DAVIS_SOFTWARE)
-            main.attrs['title'] = 'piv snapshot data'
-
-            if recording_dtime is not None:
-                ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
-
-            for i, cname in enumerate(('x', 'y', 'ix', 'iy')):
-                ds = main.create_dataset(
-                    name=cname,
-                    shape=pivdata.data[cname].shape,
-                    maxshape=pivdata.data[cname].shape,
-                    chunks=pivdata.data[cname].shape,
-                    data=pivdata.data[cname],
-                    dtype=pivdata.data[cname].dtype,
-                    compression=get_config('compression'),
-                    compression_opts=get_config('compression_opts'))
-                for k, v in pivdata.data_attrs[cname].items():
-                    ds.attrs[k] = v
-                ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
-
-            for i, cname in enumerate(('z', 'reltime')):
-                ds = main.create_dataset(cname, data=pivdata.data[cname])
-                for k, v in pivdata.data_attrs[cname].items():
-                    ds.attrs[k] = v
-                ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
-
-            # Data Arrays
-            _shape = (ny, nx)
-            for k, v in pivdata.data.items():
-                if k not in DIM_NAMES:
-                    ds = main.create_dataset(
-                        name=k,
-                        shape=_shape,
-                        dtype=v.dtype,
-                        maxshape=_shape,
-                        chunks=_shape,
-                        compression=get_config('compression'),
-                        compression_opts=get_config('compression_opts'))
-                    ds[:] = v
-                    for ic, c in enumerate((('y', 'iy'), ('x', 'ix'))):
-                        ds.dims[ic].attach_scale(main[c[0]])
-                        ds.dims[ic].attach_scale(main[c[1]])
-                    if recording_dtime is None:
-                        ds.attrs['COORDINATES'] = ['reltime', 'z']
-                    else:
-                        ds.attrs['COORDINATES'] = ['reltime', 'z', ds_rec_dtime.name]
-
-                    if k in pivdata.data_attrs:
-                        for attr_key, attr_val in pivdata.data_attrs[k].items():
-                            if attr_key not in IGNORE_ATTRS:
-                                ds.attrs[attr_key] = attr_val
-
-            # for name, comp in frame.components.items():
-            #     ds = main.create_dataset(
-            #         name=name,
-            #         shape=comp.shape,
-            #         maxshape=comp.shape,
-            #         data=comp.planes[0],
-            #         compression=get_config('compression'),
-            #         compression_opts=get_config('compression_opts')
-            #     )
-            #     ds.attrs["description"] = comp.scale.description
-            #     ds.attrs["unit"] = comp.scale.unit
-            #     ds.attrs["slope"] = comp.scale.slope
-            #     ds.attrs["offset"] = comp.scale.offset
-            #
-            #     for ic, c in enumerate((('y', 'iy'), ('x', 'ix'))):
-            #         ds.dims[ic].attach_scale(main[c[0]])
-            #         ds.dims[ic].attach_scale(main[c[1]])
-            #
-            #     if recording_dtime is None:
-            #         ds.attrs['COORDINATES'] = ['reltime', 'z']
-            #     else:
-            #         ds.attrs['COORDINATES'] = ['reltime', 'z', ds_rec_dtime.name]
-        return _hdf_filename
+        """Serialize this adapter through the shared snapshot writer."""
+        from ..writer import write_snapshot
+        return write_snapshot(self.read(relative_time, **kwargs), hdf_filename,
+                              self.filename, recording_dtime, z)

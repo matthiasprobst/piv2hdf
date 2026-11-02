@@ -4,16 +4,13 @@ import warnings
 from datetime import datetime
 from typing import Dict, Union, List, Optional
 
-import h5rdmtoolbox as h5tbx
 import numpy as np
 import pandas as pd
 
 from .const import *
 from .parameter import OpenPIVParameterFile
-from ..config import get_config
 from ..flags import flag_translation_dict, Flags
 from ..interface import PIVFile, UserDefinedHDF5Operation, PIVData
-from ..utils import get_uint_type, parse_z
 
 __this_dir__ = pathlib.Path(__file__)
 
@@ -27,15 +24,10 @@ class OpenPIVResultData(PIVFile):
     def __init__(self, data: Dict,
                  parameter: Union[None, OpenPIVParameterFile, pathlib.Path] = None,
                  **kwargs):
-        _tmp_filename = pathlib.Path('__tmp__.txt')
-        with open(_tmp_filename, 'w'):
-            pass
-        super().__init__(_tmp_filename, parameter, **kwargs)
-        pathlib.Path(_tmp_filename).unlink()
-        self.data = data  # data like x,y,u,v,mask etc. as it directly comes from openpiv
+        raise NotImplementedError('In-memory OpenPIV conversion is not implemented; use OpenPIVFile')
 
     def read(self, recording_time: float, **kwargs):
-        pass
+        raise NotImplementedError('Use OpenPIVFile')
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
@@ -59,32 +51,44 @@ class OpenPIVFile(PIVFile):
                  *args,
                  user_defined_hdf5_operations: Optional[
                      Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
+                 coordinate_units='pixel', velocity_units='m/s', scaling_factor_units='pixel/m',
                  **kwargs):
+        self.coordinate_units = coordinate_units
+        self.velocity_units = velocity_units
+        self.scaling_factor_units = scaling_factor_units
         super().__init__(*args, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs, )
 
     def read(self, relative_time: float, **kwargs) -> PIVData:
         """Read data from file."""
-        px_mm_scale = float(self._parameter.param_dict['scaling_factor'])  # pixel/mm
+        from h5rdmtoolbox import get_ureg
+        scale = float(self._parameter.param_dict['scaling_factor'])
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError('OpenPIV scaling_factor must be finite and positive')
 
         data = pd.read_csv(self.filename, delimiter='\t', na_values='     nan')
 
         _ix = data["# x"].to_numpy()
         _iy = data["y"].to_numpy()
 
-        i = -1
-        for i, x in enumerate(_ix[0:-1]):
-            if (x - _ix[i + 1]) > 0:
-                break
-        ix = _ix[:i + 1]
-        iy = _iy[::i + 1]
+        nx = len(np.unique(_ix))
+        ix = _ix[:nx]
+        iy = _iy[::nx]
         nx = len(ix)
         ny = len(iy)
-        x = ix / px_mm_scale  # pixel/mm * 1/pixel = mm
-        y = iy / px_mm_scale  # pixel/mm * 1/pixel = mm
+        if nx * ny != len(data) or not np.array_equal(_ix, np.tile(ix, ny)) or not np.array_equal(_iy, np.repeat(iy, nx)):
+            raise ValueError('OpenPIV rows must form a complete rectilinear grid ordered by y then x')
+        ureg = get_ureg()
+        if self.coordinate_units == 'pixel':
+            factor = ureg.Quantity(scale, self.scaling_factor_units)
+            x = (ureg.Quantity(ix, 'pixel') / factor).to('m').magnitude
+            y = (ureg.Quantity(iy, 'pixel') / factor).to('m').magnitude
+        else:
+            x = ureg.Quantity(ix, self.coordinate_units).to('m').magnitude
+            y = ureg.Quantity(iy, self.coordinate_units).to('m').magnitude
 
         data_dict = {k: v.to_numpy().reshape((ny, nx)) for k, v in data.items() if k not in ('# x', 'y')}
-        data_dict['ix'] = ix.astype(get_uint_type(ix))
-        data_dict['iy'] = iy.astype(get_uint_type(iy))
+        data_dict['ix'] = ix
+        data_dict['iy'] = iy
         data_dict['x'] = x
         data_dict['y'] = y
         data_dict['reltime'] = np.asarray(relative_time)
@@ -98,6 +102,12 @@ class OpenPIVFile(PIVFile):
                                'reltime': dict(units='s'),
                                'sig2noise': dict(units=''),
                                }
+        for component in ('u', 'v', 'w'):
+            if component in data_dict:
+                data_dict[component] = ureg.Quantity(data_dict[component], self.velocity_units).to('m/s').magnitude
+        if self.coordinate_units != 'pixel':
+            data_dict['ix'], data_dict['iy'] = np.arange(nx), np.arange(ny)
+            variable_attributes['ix']['units'] = variable_attributes['iy']['units'] = ''
         flag_name = None
         if 'flags' in data_dict:
             flag_name = 'flags'
@@ -110,6 +120,8 @@ class OpenPIVFile(PIVFile):
 
         if flag_name:
             if 'openpiv' in flag_translation_dict:
+                if not np.all(np.isin(data_dict[flag_name], list(flag_translation_dict['openpiv']))):
+                    raise ValueError('Unknown OpenPIV flag value; expected 0, 1 or 2')
 
                 # assume no flags larger than 2**8
                 data_dict[flag_name] = data_dict[flag_name].astype(np.uint8)
@@ -122,14 +134,35 @@ class OpenPIVFile(PIVFile):
                                                   flag_meaning=json.dumps({flag.value: flag.name for flag in Flags}))
 
         if 'mask' in data_dict:
+            if flag_name is None:
+                flag_name = 'piv_flags'
+                data_dict[flag_name] = np.full((ny, nx), Flags.ACTIVE.value, dtype=np.uint8)
+                variable_attributes[flag_name] = dict(units='')
             data_dict[flag_name][data_dict.pop('mask').astype(bool)] = Flags.MASKED.value
+
+        if flag_name and flag_name != 'piv_flags':
+            data_dict['piv_flags'] = data_dict.pop(flag_name)
+            variable_attributes['piv_flags'] = variable_attributes.pop(flag_name)
+        for name in data_dict:
+            variable_attributes.setdefault(name, {'units': '', 'long_name': name.replace('_', ' ')})
 
         if 'w' in data_dict:
             variable_attributes['w'] = dict(units='m/s')
 
+        from ..processing import mask_vectors
+        mask_vectors(data_dict, variable_attributes, 'slack')
         return PIVData(data_dict,
                        variable_attributes,
-                       {'software': json.dumps(OPENPIV_SOFTWARE)})
+                       {'software': json.dumps(OPENPIV_SOFTWARE),
+                        'openpiv_input_coordinate_units': self.coordinate_units,
+                        'openpiv_input_velocity_units': self.velocity_units,
+                        'openpiv_scaling_factor_units': self.scaling_factor_units})
+
+    def write_parameters(self, param_grp):
+        super().write_parameters(param_grp)
+        if 'piv_scaling_factor' in param_grp:
+            param_grp['piv_scaling_factor'].attrs['units'] = self.scaling_factor_units
+        return param_grp
 
     def to_hdf(self,
                hdf_filename: pathlib.Path,
@@ -137,66 +170,10 @@ class OpenPIVFile(PIVFile):
                recording_dtime: Optional[Union[datetime, List[datetime]]] = None,
                z: Union[float, None] = None,
                **kwargs) -> pathlib.Path:
-        """converts the snapshot into an HDF file"""
-        pivdata = self.read(relative_time)
-        if z is not None:
-            pivdata.data['z'], pivdata.data_attrs['z']['units'] = parse_z(z)
-        # building HDF file
-        if hdf_filename is None:
-            _hdf_filename = pathlib.Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
-        else:
-            _hdf_filename = hdf_filename
-
-        with h5tbx.File(_hdf_filename, "w") as main:
-            main.attrs['title'] = 'piv snapshot data'
-            for ak, av in pivdata.root_attrs.items():
-                main.attrs[ak] = av
-            main.attrs['plane_directory'] = str(self.filename.parent.resolve())
-
-            # # process piv_parameters. there must be a parameter file at the parent location
-            # piv_param_grp = main.create_group(PIV_PARAMETER_GRP_NAME)
-            #
-            # self.write_parameters(piv_param_grp)
-
-            # if recording_dtime is not None:
-            #     ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
-            var_list = []
-            for varkey, vardata in pivdata.data.items():
-                if vardata.ndim == 1:
-                    ds = main.create_dataset(
-                        name=varkey,
-                        shape=vardata.shape,
-                        maxshape=vardata.shape,
-                        data=vardata,
-                        compression=get_config('compression'),
-                        compression_opts=get_config('compression_opts'),
-                        attrs=pivdata.data_attrs.get(varkey, None))
-                    ds.make_scale()
-                elif vardata.ndim == 0:
-                    main.create_dataset(name=varkey,
-                                        data=vardata,
-                                        dtype=vardata.dtype,
-                                        attrs=pivdata.data_attrs[varkey])
-                else:
-                    ds = main.create_dataset(
-                        name=varkey,
-                        shape=vardata.shape,
-                        chunks=vardata.shape,
-                        maxshape=vardata.shape,
-                        data=vardata,
-                        dtype=vardata.dtype,
-                        compression=get_config('compression'),
-                        compression_opts=get_config('compression_opts'),
-                        attrs=pivdata.data_attrs.get(varkey, None))
-                    var_list.append(ds)
-            for ds in var_list:
-                ds.dims[0].attach_scale(main['y'])
-                ds.dims[1].attach_scale(main['x'])
-            for k, v in pivdata.data_attrs.items():
-                if k in main:
-                    for ak, av in v.items():
-                        main[k].attrs[ak] = av
-        return hdf_filename
+        """Serialize this adapter through the shared snapshot writer."""
+        from ..writer import write_snapshot
+        return write_snapshot(self.read(relative_time, **kwargs), hdf_filename,
+                              self.filename, recording_dtime, z)
 
 
 def get_files(folder, suffix='.txt', parameter=None) -> List[OpenPIVFile]:
@@ -207,13 +184,18 @@ def get_files(folder, suffix='.txt', parameter=None) -> List[OpenPIVFile]:
     if not folder.exists():
         raise FileNotFoundError(f'{folder} does not exist.')
     openpiv_txt_filenames = sorted(folder.glob(f'*{suffix}'))
+    if not openpiv_txt_filenames:
+        raise FileNotFoundError(f'No {suffix} files found in {folder}')
     folder = openpiv_txt_filenames[0].parent
     if parameter is None:
         parameter_filename_candiates = sorted(folder.glob('*.par'))
+        if not parameter_filename_candiates:
+            raise FileNotFoundError(f'No OpenPIV parameter file found in {folder}')
         if len(parameter_filename_candiates) > 1:
             warnings.warn(f'Multiple parameter files found in {folder}. Using {parameter_filename_candiates[0]}.')
         parameter = parameter_filename_candiates[0]
     if not isinstance(parameter, (str, pathlib.Path)):
         par = OpenPIVParameterFile.from_windef(parameter)
         par.save(folder / 'openpiv_parameters.par')
-    return [OpenPIVFile(f) for f in openpiv_txt_filenames]
+        parameter = folder / 'openpiv_parameters.par'
+    return [OpenPIVFile(f, parameter=parameter) for f in openpiv_txt_filenames]

@@ -68,8 +68,8 @@ def validate_planar_plane_pivview(test, hdf_filename, nc_data, plane):
         test.assertAlmostEqual(h5['z'].values[()], 0.51, 6)
         test.assertEqual(h5['u'].shape, (8, 15, 31))
         test.assertEqual(h5['v'].shape, (8, 15, 31))
-        test.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-        test.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+        test.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+        test.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
 
         # test.assertEqual(h5['dudx'].attrs['long_name'], 'm/s')
 
@@ -211,8 +211,8 @@ class TestPlane(unittest.TestCase):
             self.assertAlmostEqual(h5['z'].values[()], 0.51, 6)
             self.assertEqual(h5['u'].shape, (8, 15, 31))
             self.assertEqual(h5['v'].shape, (8, 15, 31))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype, 'uint8')
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual(h5.find_one({'$basename': 'piv_flags'}).dtype, 'uint8')
 
         plane_dir = tutorial.PIVview.get_plane_directory()
         par_filename = plane_dir / 'piv_parameters.par'
@@ -245,8 +245,8 @@ class TestPlane(unittest.TestCase):
 
             self.assertEqual(get_config()['dtypes']['x'], 'float32')
             self.assertEqual(h5['x'].dtype.type, np.float32)
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype, 'uint8')
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual(h5.find_one({'$basename': 'piv_flags'}).dtype, 'uint8')
 
     def test_singleplane_openpiv(self):
         plane_dir = tutorial.OpenPIV.get_plane_directory()
@@ -279,5 +279,5 @@ class TestPlane(unittest.TestCase):
                 if isinstance(ds, h5py.Dataset):
                     if k not in ('ix', 'iy', 'x', 'y', 'z', 'reltime', 'time', 'image_index'):
                         self.assertEqual(ds.shape, (4, 59, 63))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype, 'uint8')
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual(h5.find_one({'$basename': 'piv_flags'}).dtype, 'uint8')

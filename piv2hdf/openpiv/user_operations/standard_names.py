@@ -6,6 +6,7 @@ from piv2hdf.interface import PIV_PARAMETER_GRP_NAME
 from piv2hdf.interface import UserDefinedHDF5Operation
 from piv2hdf.piv_params import PIV_PeakFitMethod
 from piv2hdf.utils import read_translation_yaml_file
+from piv2hdf.standard_names import TABLE_URL, load_table
 
 __this_dir__ = pathlib.Path(__file__).parent
 RESOURCES_DIR = (__this_dir__.parent / '../resources').resolve()
@@ -17,7 +18,7 @@ class AddStandardNameOperation(UserDefinedHDF5Operation):
     def __call__(self, h5: h5tbx.File) -> None:
         """openpiv post function"""
         for name, ds in h5.items():
-            if name in TRANSLATION_EXT_DICT:
+            if name in TRANSLATION_EXT_DICT and TRANSLATION_EXT_DICT[name] in load_table(TABLE_URL):
                 ds.attrs['standard_name'] = TRANSLATION_EXT_DICT[name]
 
         def _update_fields(grp):

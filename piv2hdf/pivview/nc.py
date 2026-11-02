@@ -3,25 +3,20 @@ import os
 import pathlib
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, Tuple, Union, List, Optional
 
-import h5py
 import numpy as np
 import xarray as xr
 from netCDF4 import Dataset as ncDataset
-from scipy.interpolate import LinearNDInterpolator
-from scipy.spatial import Delaunay
+from h5rdmtoolbox import get_ureg
 
 from piv2hdf import logger
 from . import parameter as pivview_parameter
-from .const import *
 from .. import flags
+from ..processing import mask_vectors
 from ..config import get_config
 from ..interface import PIVFile, UserDefinedHDF5Operation, PIVData
-from ..time import create_recording_datetime_dataset
-from ..utils import (is_time, get_uint_type,
-                     parse_z)
+from ..utils import is_time, get_uint_type
 
 __this_file__ = pathlib.Path(__file__).resolve()
 
@@ -229,38 +224,13 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
                                                               'out-of-plane component. It is a measure of quality of '
                                                               'the vector reconstruction and should be lower than 0.5 '
                                                               'pixel'})
-                elif 'velocity gradient' in variable_attributes[k]['long_name']:
-                    variable_attributes[k].update({'units': f"1/{variable_attributes['velocity']['units'][-1]}"})
+                elif 'velocity gradient' in variable_attributes[k].get('long_name', ''):
+                    variable_attributes[k].setdefault('units', '1/s')
 
-        if interpolate:
-            # While there exist some base functions assuming reg. grids and / or
-            # using splines, a true interpolation considering distances is the way
-            # to go here. Any other, faster methods rely on splines which are not
-            # bounded!
-            # Qhull on location with valid data
-            if 'x' and 'y' not in piv_data_array_dict.keys():
-                xm, ym = _build_meshgrid_xy(nc_data_array_dict['velocity'].coord_min,
-                                            nc_data_array_dict['velocity'].coord_max,
-                                            w, h)
-            xv = xm.ravel()[mask.ravel()]
-            yv = ym.ravel()[mask.ravel()]
-            xi = xm.ravel()[~mask.ravel()]
-            yi = ym.ravel()[~mask.ravel()]
-            tri = Delaunay(np.stack((xv, yv)).T)
-
-            # interpolate, create and evaluate, write
-            for k, v in piv_data_array_dict.items():
-
-                # skip iteration if k in the following variables
-                if k in ('x', 'y', 'valid', 'piv_flags'):
-                    continue
-
-                data = v.copy()
-                interpolator = LinearNDInterpolator(tri, data.ravel()[mask.ravel()])
-                interpolated_result = interpolator(xi, yi)
-                data[~mask] = interpolated_result
-
-                piv_data_array_dict[k] = data
+        xm, ym = _build_meshgrid_xy(nc_data_array_dict['velocity'].coord_min,
+                                    nc_data_array_dict['velocity'].coord_max, w, h)
+        mask_vectors(piv_data_array_dict, variable_attributes, masking,
+                     interpolate=interpolate, coordinates=(xm, ym))
 
         # Check if source for w gradients is available, if so compute.
         # CAREFUL with indexing: Meshgrids are YX indexed by default!
@@ -271,11 +241,16 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
         if 'w' in piv_data_array_dict:
             # grid spacing is assumed to be homogeneous - is the case for PIV measurements!
             dx, dy = (to[:2] - fr[:2]) / (np.array([w, h]) - 1)
+            if not np.all(np.isfinite([dx, dy])) or dx == 0 or dy == 0:
+                raise ValueError('Velocity gradients require finite, nonzero grid spacing')
+            gradient_factor = get_ureg().Quantity(
+                1, f"({variable_attributes['velocity']['units']})/({nc_root_attributes['length_conversion_units']})"
+            ).to('1/s').magnitude
 
-            piv_data_array_dict['dwdx'] = np.gradient(piv_data_array_dict['w'], dx, axis=1)
-            piv_data_array_dict['dwdy'] = np.gradient(piv_data_array_dict['w'], dy, axis=0)
+            piv_data_array_dict['dwdx'] = np.gradient(piv_data_array_dict['w'], dx, axis=1) * gradient_factor
+            piv_data_array_dict['dwdy'] = np.gradient(piv_data_array_dict['w'], dy, axis=0) * gradient_factor
 
-            _gradient_unit = f"1/{variable_attributes['velocity']['units'][-1]}"
+            _gradient_unit = '1/s'
             variable_attributes['dwdx'] = {'units': _gradient_unit,
                                            'long_name': 'velocity gradient dw/dx'}
             variable_attributes['dwdy'] = {'units': _gradient_unit,
@@ -284,24 +259,26 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
             if compute_dwdz:
                 if 'dudx' in piv_data_array_dict.keys() and 'dvdy' in piv_data_array_dict.keys():
                     logger.info("Gradient \"dwdz\" calculated from continuity equation assuming incompressible flow!")
-                    piv_data_array_dict['dwdz'] = -piv_data_array_dict['dudx'] - piv_data_array_dict['dvdy']
+                    dudx = get_ureg().Quantity(piv_data_array_dict['dudx'], variable_attributes['dudx']['units']).to('1/s').magnitude
+                    dvdy = get_ureg().Quantity(piv_data_array_dict['dvdy'], variable_attributes['dvdy']['units']).to('1/s').magnitude
+                    piv_data_array_dict['dwdz'] = -dudx - dvdy
                     variable_attributes['dwdz'] = {
                         'units': _gradient_unit,
-                        'long_name': 'velocity gradient dw/dxz assuming incompressible flow',
+                        'long_name': 'velocity gradient dw/dz assuming incompressible flow',
+                        'assumption': 'incompressible flow',
+                        'derived_from': ['dudx', 'dvdy'],
                         # 'standard_name': 'z_derivative_of_w_velocity_assuming_incompressibility',
                         'comment': 'Calculated from continuity equation using dud and dvdy and assuming '
                                    'incompressible flow!'
                     }
                 else:
-                    logger.error(
-                        "Could not compute dwdz based on continuity as du/dx and dv/dy are missing. Continuing ..."
-                    )
+                    raise ValueError('Continuity-derived dwdz requires dudx and dvdy')
 
         piv_data_array_dict['reltime'] = timestep
         variable_attributes['reltime'] = {'long_name': 'Recording time since start.',
                                           'units': time_unit}
         if not is_time(variable_attributes['reltime']['units']):
-            raise AttributeError(f'Time unit is incorrect: {variable_attributes["t"]["unit"]}')
+            raise ValueError(f'Invalid time unit: {time_unit}')
 
         # x,y,z,t are not part of PIVview netCDF variables
         if build_coord_datasets:  # can speed up computation when plane or case HDF files are generated
@@ -384,9 +361,11 @@ class PIVViewNcFile(PIVFile):
                  parameter: Optional[Union[pivview_parameter.PIVviewParamFile, pathlib.Path]] = None,
                  user_defined_hdf5_operations: Optional[
                      Union[UserDefinedHDF5Operation, List[UserDefinedHDF5Operation]]] = None,
+                 compute_dwdz: bool = False,
                  **kwargs):
         # if user_defined_hdf5_operations is None:
         #     user_defined_hdf5_operations = add_standard_name_operation
+        self.compute_dwdz = compute_dwdz
         super().__init__(filename, parameter, user_defined_hdf5_operations=user_defined_hdf5_operations, **kwargs)
 
     def read(self,
@@ -422,10 +401,14 @@ class PIVViewNcFile(PIVFile):
                                                                           timestep=relative_time,
                                                                           masking=masking,
                                                                           interpolate=interpolation,
+                                                                          compute_dwdz=self.compute_dwdz,
                                                                           build_coord_datasets=build_coord_datasets)
         # nc_root_attr['filename'] = nc_root_attr.pop('long_name')
         # unique_flags = np.unique(piv_data.data['piv_flags'][:])
-        nc_variable_attr['piv_flags']['flag_meaning'] = json.dumps({flag.value: flag.name for flag in flags.Flags})
+        if 'piv_flags' in nc_data:
+            nc_variable_attr['piv_flags']['flag_meaning'] = json.dumps({flag.value: flag.name for flag in flags.Flags})
+        nc_root_attr.update(pivview_masking=masking, pivview_interpolation=interpolation,
+                            assumed_incompressible=self.compute_dwdz)
         return PIVData(nc_data, nc_variable_attr, nc_root_attr)
 
     def to_hdf(self,
@@ -434,76 +417,10 @@ class PIVViewNcFile(PIVFile):
                recording_dtime: Union[datetime, List[datetime]],  # iso-format of datetime!
                z: Union[str, float, None] = None,
                **kwargs) -> pathlib.Path:
-        """converts the snapshot into an HDF file"""
-        piv_data = self.read(relative_time=relative_time)
-        if z is not None:
-            piv_data.data['z'], piv_data.data_attrs['z']['units'] = parse_z(z)
-        ny, nx = piv_data.data['y'].size, piv_data.data['x'].size
-        # building HDF file
-        if hdf_filename is None:
-            _hdf_filename = Path.joinpath(self.filename.parent, f'{self.filename.stem}.hdf')
-        else:
-            _hdf_filename = hdf_filename
-        with h5py.File(_hdf_filename, "w") as main:
-            main.attrs['plane_directory'] = str(self.filename.parent.resolve())
-            main.attrs['software'] = json.dumps(PIVVIEW_SOFTWARE)
-            main.attrs['title'] = 'piv snapshot data'
-
-            # process piv_parameters. there must be a parameter file at the parent location
-            # piv_param_grp = main.create_group(PIV_PARAMETER_GRP_NAME)
-            # self.write_parameters(piv_param_grp)
-            if recording_dtime is not None:
-                ds_rec_dtime = create_recording_datetime_dataset(main, recording_dtime, name='time')
-
-            for i, cname in enumerate(('x', 'y', 'ix', 'iy')):
-                ds = main.create_dataset(
-                    name=cname,
-                    shape=piv_data.data[cname].shape,
-                    maxshape=piv_data.data[cname].shape,
-                    chunks=piv_data.data[cname].shape,
-                    data=piv_data.data[cname], dtype=piv_data.data[cname].dtype,
-                    compression=get_config('compression'),
-                    compression_opts=get_config('compression_opts'))
-                for k, v in piv_data.data_attrs[cname].items():
-                    ds.attrs[k] = v
-                ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
-
-            for i, cname in enumerate(('z', 'reltime')):
-                ds = main.create_dataset(cname, data=piv_data.data[cname])
-                for k, v in piv_data.data_attrs[cname].items():
-                    ds.attrs[k] = v
-                ds.make_scale(DEFAULT_DATASET_LONG_NAMES[cname])
-
-            # Data Arrays
-            _shape = (ny, nx)
-            for k, v in piv_data.data.items():
-                if k not in DIM_NAMES:
-                    ds = main.create_dataset(
-                        name=k,
-                        shape=_shape,
-                        dtype=v.dtype,
-                        maxshape=_shape,
-                        chunks=_shape,
-                        compression=get_config('compression'),
-                        compression_opts=get_config('compression_opts'))
-                    ds[:] = v
-                    for ic, c in enumerate((('y', 'iy'), ('x', 'ix'))):
-                        ds.dims[ic].attach_scale(main[c[0]])
-                        ds.dims[ic].attach_scale(main[c[1]])
-                    if recording_dtime is None:
-                        ds.attrs['COORDINATES'] = ['reltime', 'z']
-                    else:
-                        ds.attrs['COORDINATES'] = ['reltime', 'z', ds_rec_dtime.name]
-
-                    if k in piv_data.data_attrs:
-                        for attr_key, attr_val in piv_data.data_attrs[k].items():
-                            if attr_key not in IGNORE_ATTRS:
-                                ds.attrs[attr_key] = attr_val
-            # # pivflags explanation:
-            # unique_flags = np.unique(main['piv_flags'][:])
-            # main['piv_flags'].attrs['flag_meaning'] = json.dumps(
-            #     {str(PIVviewFlag(u)): int(u) for u in unique_flags})
-        return hdf_filename
+        """Serialize this adapter through the shared snapshot writer."""
+        from ..writer import write_snapshot
+        return write_snapshot(self.read(relative_time, **kwargs), hdf_filename,
+                              self.filename, recording_dtime, z)
 
 
 class PIVViewStereoNcFile(PIVViewNcFile):

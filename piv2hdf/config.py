@@ -1,4 +1,7 @@
 from typing import Dict
+from copy import deepcopy
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import h5rdmtoolbox as h5tbx
 
@@ -29,15 +32,31 @@ CONFIG = dict(
 )
 
 PIV_ATTRS = dict()
-_ORIG_PIV_ATTRS_KEYS = list(PIV_ATTRS.keys())
+_conversion_config = ContextVar('piv2hdf_conversion_config', default=None)
+
+
+def _copy_config(values):
+    return {key: value if key == 'convention' else deepcopy(value) for key, value in values.items()}
+
+
+@contextmanager
+def conversion_scope():
+    """Freeze options for one conversion, including callbacks and validation."""
+    token = _conversion_config.set(_copy_config(get_config()))
+    try:
+        # Writers use plain HDF5 semantics; conventions validate the completed file.
+        with h5tbx.use(None):
+            yield
+    finally:
+        _conversion_config.reset(token)
 
 
 class _Setter:
     def __enter__(self):
-        return
+        return self
 
     def __exit__(self, type, value, traceback):
-        self._update(self.old)
+        self._restore()
 
 
 class PIVAttrsSetter(_Setter):
@@ -55,9 +74,8 @@ class PIVAttrsSetter(_Setter):
         self.old = {}
 
     def __call__(self, **kwargs):
-        self.old = {}
+        old = deepcopy(PIV_ATTRS)
         with h5tbx.use(get_config('convention')) as cv:
-            print(f'Checking the PIV attributes based on convention currently set ({cv.name})...')
             root_standard_attributes = cv.properties.get(h5tbx.File, None)
             if root_standard_attributes is not None:
                 invalids = {}
@@ -65,19 +83,18 @@ class PIVAttrsSetter(_Setter):
                     sa = root_standard_attributes.get(k, None)
                     if sa is not None:
                         try:
-                            sa.validate(v, None)
-                            # sa.validator.model_validate(dict(value=v))
+                            if not sa.validate(v, None):
+                                invalids[k] = (v, 'validation returned False')
                         except Exception as e:
-                            if sa.default_value == sa.__class__.EMPTY:
-                                # collect invalids
-                                invalids[k] = (v, e)
+                            invalids[k] = (v, e)
 
                 if invalids:
                     invalids_str = '\n - '.join([f'"{k}": {v[0]} due to "{v[1]}"' for k, v in invalids.items()])
                     raise ValueError(f'Based on the set convention "{cv.name}",'
                                      f' the following PIV parameters are invalid: {invalids_str}')
 
-        self._update(kwargs)
+        self._update(deepcopy(kwargs))
+        return _PivAttrsContext(old)
 
     def _update(self, options_dict: Dict):
         """Update piv attributes."""
@@ -87,9 +104,18 @@ class PIVAttrsSetter(_Setter):
 set_pivattrs = PIVAttrsSetter()
 
 
+class _PivAttrsContext(_Setter):
+    def __init__(self, old):
+        self.old = old
+
+    def _restore(self):
+        PIV_ATTRS.clear()
+        PIV_ATTRS.update(self.old)
+
+
 def get_pivattrs() -> Dict:
     """Return the piv attributes."""
-    return PIV_ATTRS
+    return deepcopy(PIV_ATTRS)
 
 
 def reset_pivattrs():
@@ -101,7 +127,10 @@ class set_config(_Setter):
     """Set the configuration parameters."""
 
     def __init__(self, **kwargs):
-        self.old = {}
+        self.old = _copy_config(CONFIG)
+        if kwargs.get('convention') == 'planar_piv':
+            from .convention import init_cv
+            init_cv()
         for k, v in kwargs.items():
             if k not in CONFIG:
                 raise KeyError(f'Not a configuration key: {k}')
@@ -111,15 +140,18 @@ class set_config(_Setter):
 
                 for pp_name in v:
                     if isinstance(pp_name, str):
-                        if pp_name not in dir(postproc):
+                        if pp_name not in postproc.PROCESSORS:
                             raise ValueError(f'Unknown postproc name: {pp_name}')
-                    elif isinstance(pp_name, callable):
+                    elif callable(pp_name):
                         pass
                     else:
                         raise TypeError(f'Expected a string or callable for key "postproc", got {type(pp_name)}')
 
-            self.old[k] = CONFIG[k]
-        self._update(kwargs)
+        self._update(_copy_config(kwargs))
+
+    def _restore(self):
+        CONFIG.clear()
+        CONFIG.update(self.old)
 
     def _update(self, options_dict: Dict):
         CONFIG.update(options_dict)
@@ -128,5 +160,6 @@ class set_config(_Setter):
 def get_config(key=None):
     """Return the configuration parameters."""
     if key is None:
-        return CONFIG
-    return CONFIG[key]
+        return _copy_config(_conversion_config.get() or CONFIG)
+    value = (_conversion_config.get() or CONFIG)[key]
+    return value if key == 'convention' else deepcopy(value)

@@ -66,7 +66,7 @@ class TestMPlane(unittest.TestCase):
                                            time_info=time_info) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
-        hdf_filename = mplane.to_hdf(
+        hdf_filename = mplane.to_hdf(trim_time_vectors=True,
             piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]))
         with h5tbx.File(hdf_filename) as h5:
 
@@ -103,8 +103,8 @@ class TestMPlane(unittest.TestCase):
             self.assertEqual(list(h5['z'][()]), [-5., 0.])
             self.assertEqual(h5['u'].shape, (2, 3, 15, 31))
             self.assertEqual(h5['v'].shape, (2, 3, 15, 31))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
             for k, v in h5.items():
                 if isinstance(v, h5py.Dataset) and v.ndim == 4:
                     if v.dims[0][0] != h5['z']:
@@ -131,7 +131,7 @@ class TestMPlane(unittest.TestCase):
                                            time_info=time_info) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
-        hdf_filename = mplane.to_hdf(
+        hdf_filename = mplane.to_hdf(trim_time_vectors=True,
             piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
             atol=1e-3, rtol=1e-3)
         self.assertEqual(hdf_filename, mplane.hdf_filename)
@@ -159,8 +159,8 @@ class TestMPlane(unittest.TestCase):
             self.assertEqual(list(h5['z'][()]), [-5., 0.])
             self.assertEqual(h5['u'].shape, (2, 3, 15, 31))
             self.assertEqual(h5['v'].shape, (2, 3, 15, 31))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
             for k, v in h5.items():
                 if isinstance(v, h5py.Dataset) and v.ndim == 4:
                     assert v.dims[0][0] == h5['z']
@@ -191,7 +191,7 @@ class TestMPlane(unittest.TestCase):
                                            ) for d, time_info in
                       zip(plane_dirs, time_infos)]
         mplane = PIVMultiPlane(plane_objs)
-        hdf_filename = mplane.to_hdf(
+        hdf_filename = mplane.to_hdf(trim_time_vectors=True,
             piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
             atol=1e-1, rtol=1e-1)
         with h5tbx.File(hdf_filename) as h5:
@@ -218,8 +218,8 @@ class TestMPlane(unittest.TestCase):
             self.assertEqual(list(h5['z'][()]), [-5., 0., 10.0])
             self.assertEqual(h5['u'].shape, (3, 2, 15, 31))
             self.assertEqual(h5['v'].shape, (3, 2, 15, 31))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
             for k, v in h5.items():
                 if isinstance(v, h5py.Dataset) and v.ndim == 4:
                     assert v.dims[0][0] == h5['z']
@@ -243,7 +243,7 @@ class TestMPlane(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             # time vectors are not close enough
-            mplane.to_hdf(piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"],
+            mplane.to_hdf(trim_time_vectors=True, piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"],
                                               creator=self.meta["CREATOR"]),
                           atol=1e-3, rtol=1e-3)
 
@@ -255,7 +255,7 @@ class TestMPlane(unittest.TestCase):
                                            udo=opernpiv_add_standard_name_operation) for d in
                       plane_dirs]
         mplane = PIVMultiPlane(plane_objs)
-        hdf_filename = mplane.to_hdf(piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"],
+        hdf_filename = mplane.to_hdf(trim_time_vectors=True, piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"],
                                                          creator=self.meta["CREATOR"]),
                                      z=[-5., 0.])
         with h5tbx.File(hdf_filename) as h5:
@@ -279,8 +279,8 @@ class TestMPlane(unittest.TestCase):
             self.assertEqual(list(h5['z'][()]), [-5., 0.])
             self.assertEqual(h5['u'].shape, (2, 3, 59, 63))
             self.assertEqual(h5['v'].shape, (2, 3, 59, 63))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
 
     def test_multi_piv_unequal_nt_pivview(self):
         from piv2hdf import PIVMultiPlane
@@ -293,7 +293,7 @@ class TestMPlane(unittest.TestCase):
                                             pivfile=PIVViewNcFile,
                                             udo=add_standard_name_operation)
         with self.assertRaises(ValueError):
-            mplane.to_hdf(
+            mplane.to_hdf(trim_time_vectors=True,
                 piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
             )
 
@@ -302,13 +302,13 @@ class TestMPlane(unittest.TestCase):
                                             time_infos=[(NOW, 5), (NOW, 5.001), (NOW, 4.9999)],
                                             pivfile=PIVViewNcFile,
                                             udo=add_standard_name_operation)
-        hdf_filename = mplane.to_hdf(
+        hdf_filename = mplane.to_hdf(trim_time_vectors=True,
             piv_attributes=dict(piv_medium=self.meta["PIV_MEDIUM"], creator=self.meta["CREATOR"]),
             atol=0.1, rtol=0.1
         )
         with h5tbx.File(hdf_filename) as h5:
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual('uint8', h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype)
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual('uint8', h5.find_one({'$basename': 'piv_flags'}).dtype)
             for plane_name in ('plane0', 'plane1', 'plane2'):
                 for k, v in h5[plane_name].items():
                     if isinstance(v, h5py.Dataset) and v.ndim == 3:

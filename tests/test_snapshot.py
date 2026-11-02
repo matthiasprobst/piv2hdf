@@ -113,9 +113,9 @@ class TestSnapshot(unittest.TestCase):
             self.assertIn('time', h5['u'][()].coords)
             self.assertEqual(h5['u'].shape, (15, 31))
             self.assertEqual(h5['v'].shape, (15, 31))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flags?'}}))
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
             self.assertEqual('uint8',
-                             h5.find_one({'standard_name': {'$regex': 'piv_flags?'}}).dtype)
+                             h5.find_one({'$basename': 'piv_flags'}).dtype)
 
     def test_openpiv_snapshot(self):
         # get the test file:
@@ -144,5 +144,5 @@ class TestSnapshot(unittest.TestCase):
             self.assertEqual(h5['y'].size, 59)
             self.assertEqual(h5['u'].shape, (59, 63))
             self.assertEqual(h5['v'].shape, (59, 63))
-            self.assertIsNotNone(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}))
-            self.assertEqual(h5.find_one({'standard_name': {'$regex': 'piv_flag'}}).dtype, 'uint8')
+            self.assertIsNotNone(h5.find_one({'$basename': 'piv_flags'}))
+            self.assertEqual(h5.find_one({'$basename': 'piv_flags'}).dtype, 'uint8')

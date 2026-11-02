@@ -13,13 +13,15 @@ import h5rdmtoolbox as h5tbx
 import numpy as np
 from tqdm import tqdm
 
-from piv2hdf.config import get_config, get_pivattrs
+from piv2hdf.config import get_config, get_pivattrs, conversion_scope
 from . import postproc
 from ._logger import logger
 from .time import TimeVectorWarning
 from .time import create_recording_datetime_dataset
 from .utils import generate_temporary_filename, get_uint_type, parse_z
-from dataclasses import dataclass
+from .data import PIVData, validate_snapshot, validate_relative_time, convert_values
+from .validation import LayoutValidationError, LayoutValidationWarning, validate_layout
+from .output import atomic_conversion
 
 PIV_PARAMETER_GRP_NAME = 'piv_parameters'
 PIV_PARAMETER_ATTRS_NAME = 'piv_parameter_dict'
@@ -28,11 +30,6 @@ DEFAULT_MPLANE_TITLE = 'piv snapshot data'
 DEFAULT_PLANE_TITLE = 'piv plane data'
 
 IMAGE_INDEX = 'image_index'  # name of the image index coordinate
-
-
-class LayoutValidationWarning(Warning):
-    """Warning for layout validation"""
-    pass
 
 
 def useroperation(func: Callable) -> Callable:
@@ -54,9 +51,9 @@ def useroperation(func: Callable) -> Callable:
             if callable(pp_func_name):
                 pp_func = pp_func_name
             elif isinstance(pp_func_name, str):
-                if pp_func_name not in dir(postproc):
+                if pp_func_name not in postproc.PROCESSORS:
                     raise NotImplementedError(f'Postprocessing function {pp_func_name} not implemented.')
-                pp_func = getattr(postproc, pp_func_name)
+                pp_func = postproc.PROCESSORS[pp_func_name]
             else:
                 raise TypeError(f'Expected a string or callable for key "postproc", got {type(pp_func_name)}')
             with h5tbx.File(hdf_filename, 'r+') as h5:
@@ -75,25 +72,7 @@ def layoutvalidation(func: Callable) -> Callable:
         """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
         hdf_filename = func(*args, **kwargs)
 
-        # checking standard attributes:
-
-        with h5tbx.use(get_config('convention')) as cv:
-            logger.debug(
-                f'Checking the PIV attributes based on convention currently set ({cv.name} @ {cv.filename})...'
-            )
-            with h5tbx.File(hdf_filename, 'r+') as h5:
-
-                for sa_name, std_attr in h5.standard_attributes.items():
-                    if sa_name not in h5.attrs.raw:
-                        if std_attr.default_value == std_attr.__class__.NONE:
-                            logger.debug(f'Attribute {sa_name} not set but is also only optional.')
-                            continue
-                        else:
-                            logger.error(f'Attribute not set: {sa_name} but is required.')
-                            continue
-
-                    std_attr.validate(h5.attrs.raw[sa_name], parent=h5)
-
+        validate_layout(hdf_filename)
         return hdf_filename
 
     return validation_wrapper
@@ -215,19 +194,14 @@ class PIVParameterInterface:
         """Write parameter content to HDF group"""
         grp.attrs[PIV_PARAMETER_ATTRS_NAME] = json.dumps(self.param_dict)
         for k, v in self.piv_param_datasets.items():
-            if v['data']:
+            if v['data'] is not None:
                 ds = grp.create_dataset(name=k, data=v['data'])
                 for ak, av in v.items():
                     if ak != 'data':
                         ds.attrs[ak] = av
+                if 'long_name' not in ds.attrs:
+                    ds.attrs['long_name'] = k.replace('_', ' ')
         return grp
-
-
-@dataclass
-class PIVData:
-    data: Dict
-    data_attrs: Dict
-    root_attrs: Dict
 
 
 @runtime_checkable
@@ -259,7 +233,7 @@ class PIVFile(abc.ABC):
         if user_defined_hdf5_operations is not None:
             warnings.warn(
                 "Injecting a user defined operation using 'user_defined_hdf5_operations' is deprecated. Use 'udo' instead")
-        udo = kwargs.get("udo", user_defined_hdf5_operations)
+        udo = kwargs.pop("udo", user_defined_hdf5_operations)
         filename = pathlib.Path(filename)
         if not filename.is_file():
             raise TypeError(f'Snapshot file path is not a file: {filename}.')
@@ -336,6 +310,12 @@ class PIVConverter(abc.ABC):
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
 
+    def _default_filename(self):
+        raise ValueError('An explicit hdf_filename is required for this converter')
+
+    def _source_files(self):
+        return []
+
     @abc.abstractmethod
     def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
         """return the user defined hdf5 operation class"""
@@ -344,6 +324,8 @@ class PIVConverter(abc.ABC):
     def __to_hdf__(self, hdf_filename: pathlib.Path, **kwargs) -> pathlib.Path:
         """conversion method"""
 
+    @atomic_conversion
+    @conversion_scope()
     @layoutvalidation
     @useroperation
     def to_hdf(self,
@@ -380,8 +362,13 @@ class PIVConverter(abc.ABC):
             _piv_attrs.update(piv_attributes)
 
         with h5tbx.File(hdf_filename, 'r+') as h5:
+            from .standard_names import TABLE_URL
+            h5.attrs.setdefault('standard_name_table', TABLE_URL)
+            h5.attrs['piv2hdf_schema_version'] = '2.0'
             for k, v in _piv_attrs.items():
                 h5.attrs[k] = v
+            from .provenance import record_conversion
+            record_conversion(h5, self._source_files())
 
         return hdf_filename
 
@@ -415,6 +402,12 @@ class PIVSnapshot(PIVConverter):
     def __repr__(self):
         return f'<{self.__class__.__name__} of {self.piv_file.__repr__()} >'
 
+    def _default_filename(self):
+        return self.piv_file.filename.with_suffix('.hdf')
+
+    def _source_files(self):
+        return [self.piv_file.filename]
+
     def __get_user_defined_hdf5_operations__(self) -> List[UserDefinedHDF5Operation]:
         return self.piv_file.udo
 
@@ -439,15 +432,18 @@ class PIVSnapshot(PIVConverter):
         return hdf_filename
 
 
-class LayoutValidationError(Exception):
-    """Exception raised when Layout validation failed"""
-
-
 class PIVPlane(PIVConverter):
     """Interface class"""
 
     __slots__ = 'list_of_piv_files', 'rel_time_vector'
     plane_coord_order = ('reltime', 'y', 'x')
+
+    def _default_filename(self):
+        folder = self.list_of_piv_files[0].filename.parent
+        return folder / f'{folder.stem}.hdf'
+
+    def _source_files(self):
+        return [source.filename for source in self.list_of_piv_files]
 
     def __init__(self,
                  list_of_piv_files: List[PIVFile],
@@ -484,6 +480,9 @@ class PIVPlane(PIVConverter):
         if not isinstance(time_info, (tuple, list)):
             raise TypeError(f'Expecting type tuple or list for parameter time_info, '
                             f'not type {type(time_info)}')
+        if len(time_info) == 2 and isinstance(time_info[1], (float, int)):
+            if isinstance(time_info[1], bool) or not np.isfinite(time_info[1]) or time_info[1] <= 0:
+                raise ValueError('Measurement frequency must be finite and positive')
         if len(time_info) == 2:
             if isinstance(time_info[1], (float, int)):
                 # build time vector based on recording start datetime and frequency
@@ -498,11 +497,15 @@ class PIVPlane(PIVConverter):
                 if not all(isinstance(r, datetime.datetime) for r in time_info):
                     raise TypeError('Expecting type datetime for all items of parameter time_info[0]')
                 abs_time = time_info
+                if len(abs_time) != n:
+                    raise ValueError('Timestamp count does not match the number of snapshots')
                 rel_time = [(abs_time[i] - abs_time[0]).total_seconds() for i in range(n)]
         else:
             # expecting a list of datetime objects
             if not all(isinstance(r, datetime.datetime) for r in time_info):
                 raise TypeError('Expecting type datetime for all items of parameter time_info[0]')
+            if len(time_info) < n:
+                raise ValueError('Fewer timestamps than snapshots')
             if n != len(time_info):
                 warnings.warn(f'Length of time_info ({len(time_info)}) is inconsistent with number of piv files ({n}). '
                               f'Assuming that time_info is a correct time vector, thus taking only the first {n} '
@@ -510,7 +513,7 @@ class PIVPlane(PIVConverter):
             abs_time = time_info[0:n]
             rel_time = [(abs_time[i] - abs_time[0]).total_seconds() for i in range(n)]
 
-        self.rel_time_vector = np.asarray(rel_time)
+        self.rel_time_vector = validate_relative_time(rel_time)
         self.abs_time_vector = np.asarray(abs_time)
         self.IMAGE_INDEX = np.arange(1, n + 1, 1)
 
@@ -598,16 +601,18 @@ class PIVPlane(PIVConverter):
             raise ValueError(f'No snapshot files found in {plane_directory.absolute()}')
 
         pbar = tqdm(found_snapshot_files, desc=f'Init {n_files} {pivfile.__name__} object')
+        kwargs.pop('udo', None)
         if parameter:
             return PIVPlane([
                 pivfile(
                     nc,
                     parameter=parameter,
-                    udo=udo
+                    udo=udo, **kwargs
                 ) for nc in pbar],
                 time_info)
 
-        return PIVPlane([pivfile(nc, udo=udo) for nc in pbar], time_info, )
+        kwargs.pop('udo', None)
+        return PIVPlane([pivfile(nc, udo=udo, **kwargs) for nc in pbar], time_info)
 
     def __to_hdf__(self,
                    hdf_filename: Union[str, pathlib.Path] = None,
@@ -641,10 +646,7 @@ class PIVPlane(PIVConverter):
                      f'{self.list_of_piv_files[0].__class__.__name__}({self.list_of_piv_files[0].filename}')
         pivdata = self.list_of_piv_files[0].read(self.rel_time_vector[0])
 
-        if z is not None:
-            pivdata.data['z'], z_units = parse_z(z)
-        else:
-            z_units = None
+        pivdata = pivdata.with_z(z)
         mandatory_keys = ('x', 'y', 'z', 'ix', 'iy', 'reltime')
         for mkey in mandatory_keys:
             if mkey not in pivdata.data.keys():
@@ -697,11 +699,8 @@ class PIVPlane(PIVConverter):
                 for ak, av in pivdata.data_attrs[varkey].items():
                     h5main[varkey].attrs[ak] = av
 
-            if 'z' not in pivdata.data_attrs:
-                h5main['z'].attrs['units'] = z_units
-            else:
-                for ak, av in pivdata.data_attrs['z'].items():
-                    h5main['z'].attrs[ak] = av
+            for ak, av in pivdata.data_attrs['z'].items():
+                h5main['z'].attrs[ak] = av
 
             # write all other dataset to file:
             logger.debug('Writing abs time vector')
@@ -709,7 +708,7 @@ class PIVPlane(PIVConverter):
             ds_rec_dtime.make_scale()
             ds_imgidx = h5main.create_dataset(IMAGE_INDEX, data=self.IMAGE_INDEX,
                                               attrs=dict(units='',
-                                                         standard_name='piv_image_index'),
+                                                         standard_name='image_index'),
                                               dtype=get_config()['dtypes'].get(IMAGE_INDEX, None))
             ds_imgidx.make_scale()
 
@@ -738,12 +737,14 @@ class PIVPlane(PIVConverter):
                     if varkey in pivdata.data_attrs:
                         for ak, av in pivdata.data_attrs[varkey].items():
                             ds.attrs[ak] = av
+                    ds.attrs.setdefault('long_name', varkey.replace('_', ' '))
 
             logger.debug(f'Writing all datasets to file. Number of source files: {len(self.list_of_piv_files[1:])}')
             for (ifile, piv_file), t in zip(enumerate(self.list_of_piv_files[1:]), self.rel_time_vector[1:]):
                 pbar.update(1)
                 logger.debug(f'Processing {piv_file.filename}')
-                _pivdata = piv_file.read(t)
+                _pivdata = piv_file.read(t).with_z(z)
+                validate_snapshot(pivdata, _pivdata, piv_file.filename)
                 for varkey in dataset_keys:
                     h5main[varkey][ifile + 1, ...] = _pivdata.data[varkey][...]
 
@@ -773,6 +774,13 @@ class PIVMultiPlane(PIVConverter):
     """Interface class"""
     __slots__ = 'list_of_piv_folder'
     plane_coord_order = ('z', 'reltime', 'y', 'x')
+
+    def _default_filename(self):
+        folder = self.list_of_piv_planes[0].list_of_piv_files[0].filename.parent.parent
+        return folder.with_suffix('.hdf')
+
+    def _source_files(self):
+        return [source for plane in self.list_of_piv_planes for source in plane._source_files()]
 
     def __getitem__(self, item):
         return self.list_of_piv_folder[item]
@@ -811,7 +819,7 @@ class PIVMultiPlane(PIVConverter):
     def merge_planes(*,
                      hdf_filenames: List[pathlib.Path],
                      target_hdf_filename: Union[str, pathlib.Path],
-                     title: str):
+                     title: str, trim_time_vectors=False, rtol=0., atol=0.):
         """merges multiple piv plane hdf files together
 
         Parameters
@@ -824,6 +832,8 @@ class PIVMultiPlane(PIVConverter):
             Title of the target hdf file
         """
         n_files = len(hdf_filenames)
+        if n_files < 2:
+            raise ValueError('At least two plane files are required')
         print(f'Merging {n_files} HDF files into {target_hdf_filename}.')
         software_list = []
         nt_list = []
@@ -832,6 +842,7 @@ class PIVMultiPlane(PIVConverter):
         y_data = []
         z_data = []
         dim_names = []
+        coordinate_units = {}
         for hdf_file in hdf_filenames:
             with h5py.File(hdf_file) as h5plane:
                 try:
@@ -839,10 +850,14 @@ class PIVMultiPlane(PIVConverter):
                 except KeyError:
                     pass
                 nt_list.append(h5plane['reltime'].size)
-                t_list.append(h5plane['reltime'][()])
-                x_data.append(h5plane['x'][:])
-                y_data.append(h5plane['y'][:])
-                z_data.append(h5plane['z'][()])
+                t_list.append(validate_relative_time(h5plane['reltime'][()]))
+                for name, collection in [('x', x_data), ('y', y_data), ('z', z_data)]:
+                    units = h5plane[name].attrs.get('units')
+                    coordinate_units.setdefault(name, units)
+                    values = convert_values(h5plane[name][()], units, coordinate_units[name])
+                    if not np.all(np.isfinite(values)):
+                        raise ValueError(f'Nonfinite {name} coordinate in {hdf_file}')
+                    collection.append(values)
                 dim_names.append([d[0].name for d in h5plane['u'].dims])
         if any(dim_names[0] != d for d in dim_names):
             raise RuntimeError('Inconsistent dimension names. All planes must have same dimension names'
@@ -857,10 +872,25 @@ class PIVMultiPlane(PIVConverter):
             raise ValueError('x coordinates of planes are different. Cannot merge.')
         if not np.all([np.array_equal(y_data[0], y) for y in y_data[1:]]):
             raise ValueError('y coordinates of planes are different. Cannot merge.')
-        if np.any([z_data[0] == z for z in z_data[1:]]):
+        if len(np.unique(np.asarray(z_data))) != len(z_data):
             raise ValueError(f'z coordinates must be different in order to merge the planes: {z_data}')
 
+        if len(set(nt_list)) > 1 and not trim_time_vectors:
+            raise ValueError('Unequal plane lengths require trim_time_vectors=True')
+        nt_min = min(nt_list)
+        for tolerance in (rtol, atol):
+            if tolerance is not None and (not np.isfinite(tolerance) or tolerance < 0):
+                raise ValueError('Tolerances must be finite and nonnegative')
+        for times in t_list[1:]:
+            if not np.allclose(t_list[0][:nt_min], times[:nt_min], rtol=rtol or 0., atol=atol or 0.):
+                raise ValueError('Time vectors are not close enough to merge')
+        if len(set(nt_list)) > 1:
+            warnings.warn('Trimming planes to their shortest time vector', TimeVectorWarning)
         with h5py.File(target_hdf_filename, 'w') as h5main:
+            h5main.attrs['dropped_snapshot_count'] = np.asarray(nt_list) - nt_min
+            h5main.attrs['acquisition_layout'] = 'separate planes; index alignment does not imply simultaneity'
+            original_time = h5main.create_dataset('relative_time_per_plane', data=[t[:nt_min] for t in t_list])
+            original_time.attrs.update(units='s', long_name='Original relative times for each plane')
             if software_list:
                 h5main.attrs['software'] = software_list[0]
             # check if time vectors are close has been done by this time.
@@ -868,6 +898,7 @@ class PIVMultiPlane(PIVConverter):
             dt_list = [np.diff(t[0:nt_min]) for t in t_list]
             abs_diff = np.abs(dt_list[0] - dt_list[1:])
             if np.all(abs_diff == 0.):
+                h5main.attrs['time_alignment'] = 'identical relative times'
                 print('Relative time vectors are identical. Merging into one group...')
                 PIVMultiPlane._merge_planes_equal_time_vectors(h5main=h5main,
                                                                hdf_filenames=hdf_filenames,
@@ -877,6 +908,8 @@ class PIVMultiPlane(PIVConverter):
             print('Time vectors are close enough but not identical. Merging into one group by using one '
                   'time vector. The time vectors of all planes are written in a separate group to keep them ...')
             av_time = np.asarray([t[:nt_min] for t in t_list]).mean(axis=0)
+            warnings.warn('Using the mean of approximately aligned time vectors; originals retained', TimeVectorWarning)
+            h5main.attrs['time_alignment'] = 'mean relative time within explicit tolerances'
             PIVMultiPlane._merge_planes_equal_time_vectors(h5main=h5main,
                                                            hdf_filenames=hdf_filenames,
                                                            title=title,
@@ -984,7 +1017,7 @@ class PIVMultiPlane(PIVConverter):
         ds_relt[:] = rel_time
         ds_relt.make_scale()
 
-        ds_imgidx = h5main.create_dataset(IMAGE_INDEX, shape=(nt,), dtype=config['dtypes'].get(IMAGE_INDEX, None))
+        ds_imgidx = h5main.create_dataset(IMAGE_INDEX, shape=(nt,), dtype=config['dtypes'].get(IMAGE_INDEX, 'uint64'))
         ds_imgidx[:] = np.arange(1, nt + 1, 1, dtype=int)
         ds_imgidx.make_scale()
 
@@ -1037,16 +1070,25 @@ class PIVMultiPlane(PIVConverter):
                 #     if not ak.isupper():
                 #         ds_plane_time.attrs[ak] = av
 
-                h5main['z'][iplane] = h5plane['z'][()]
+                h5main['z'][iplane] = convert_values(h5plane['z'][()], h5plane['z'].attrs.get('units'),
+                                                      h5main['z'].attrs.get('units'))
                 for k in dataset_properties.keys():
                     ds = h5main[k]
+                    if k not in h5plane:
+                        raise ValueError(f'Missing component {k} in {plane_hdf_filename}')
+                    source_units = h5plane[k].attrs.get('units')
+                    target_units = ds.attrs.get('units')
+                    values = h5plane[k][0:nt, ...]
+                    if source_units != target_units:
+                        values = convert_values(values, source_units, target_units)
                     if z_before_t:
-                        ds[iplane, :] = h5plane[k][0:nt, ...]
+                        ds[iplane, :] = values
                     else:
                         for _it in range(nt):
-                            ds[_it, iplane, ...] = h5plane[k][_it, :, :]
+                            ds[_it, iplane, ...] = values[_it]
                 # write piv parameter group
                 plane_grp = h5main.create_group(f'plane{iplane:0{len(str(nz))}}')
+                plane_grp.attrs.update(dict(h5plane.attrs.items()))
                 if PIV_PARAMETER_GRP_NAME not in plane_grp:
                     trg_grp = plane_grp.create_group(PIV_PARAMETER_GRP_NAME)
                 else:
@@ -1172,7 +1214,7 @@ class PIVMultiPlane(PIVConverter):
                    hdf_filename: Union[str, pathlib.Path] = None,
                    rtol: float = 1.e-5,
                    atol: float = 1.e-8,
-                   trim_time_vectors: bool = True,
+                   trim_time_vectors: bool = False,
                    z: Union[List[float], np.ndarray] = None,
                    **kwargs) -> pathlib.Path:
         """converts the snapshot into an HDF file"""
@@ -1190,26 +1232,6 @@ class PIVMultiPlane(PIVConverter):
                 'Set "trim_time_vectors" to True to trim the time vectors to the shortest one.'
             )
 
-        # check if time vectors are close:
-        nt_min = min(nt_list)
-
-        # compute time deltas:
-        dt_list = [np.diff(t[:nt_min]) for t in t_list]
-
-        if atol is not None:
-            abs_diff = [np.abs(dt_list[0] - dt) for dt in dt_list[1:]]
-            atol_result = np.all([a < atol for a in abs_diff])
-        else:
-            atol_result = True
-        if rtol is not None:
-            rel_diff = [np.abs((dt_list[0] - dt) / dt_list[0]) for dt in dt_list[1:]]
-            rtol_result = np.all([r < rtol for r in rel_diff])
-        else:
-            rtol_result = True
-
-        if not rtol_result or not atol_result:
-            raise ValueError('Time vectors are not close enough to be merged! Process each plane separately.')
-
         if hdf_filename is None:
             snapshot0_filename = self.list_of_piv_planes[0].list_of_piv_files[0].filename
             name = f'{snapshot0_filename.parent.parent}.hdf'
@@ -1219,6 +1241,8 @@ class PIVMultiPlane(PIVConverter):
         nplanes = len(self.list_of_piv_planes)
         if z is None:
             z = [None, ] * nplanes
+        if len(z) != nplanes:
+            raise ValueError('One z override is required per plane')
         plane_hdf_files = [plane.__to_hdf__(generate_temporary_filename(suffix='_plane.hdf'),
                                             z=_z,
                                             iplane=iplane + 1,
@@ -1226,7 +1250,7 @@ class PIVMultiPlane(PIVConverter):
                            in zip(enumerate(self.list_of_piv_planes), z)]
         hdf_filename = self.merge_planes(hdf_filenames=plane_hdf_files,
                                          target_hdf_filename=hdf_filename,
-                                         title=title)
+                                         title=title, trim_time_vectors=trim_time_vectors, rtol=rtol, atol=atol)
         print('Done.')
         return hdf_filename
 
@@ -1235,9 +1259,9 @@ class PIVMultiPlane(PIVConverter):
                hdf_filename: pathlib.Path = None,
                z: float = None,
                atol: float = 1e-6,
-               rtol: float = 1e-3) -> pathlib.Path:
+               rtol: float = 1e-3, trim_time_vectors: bool = False) -> pathlib.Path:
         return super().to_hdf(piv_attributes=piv_attributes,
                               hdf_filename=hdf_filename,
                               z=z,
                               atol=atol,
-                              rtol=rtol)
+                              rtol=rtol, trim_time_vectors=trim_time_vectors)
