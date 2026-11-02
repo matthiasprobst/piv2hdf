@@ -33,12 +33,11 @@ IMAGE_INDEX = 'image_index'  # name of the image index coordinate
 
 
 def useroperation(func: Callable) -> Callable:
-    """decorates to_hdf method of Snapshot, Plane and Multi-Plane, that runs user code to
-    update metadata after the data has been written to the HDF5 file and before layout validation"""
+    """Run reader callbacks and configured statistics after writing the file."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
+        """Apply output operations in order, before the outer validation step."""
         hdf_filename = func(*args, **kwargs)
         udos = args[0].__get_user_defined_hdf5_operations__()
         if udos:
@@ -64,12 +63,11 @@ def useroperation(func: Callable) -> Callable:
 
 
 def layoutvalidation(func: Callable) -> Callable:
-    """decorates __to_hdf__ method of Snapshot, Plane and Multi-Plane classes to validate the created
-    HDF5 content"""
+    """Validate public converter output under the selected metadata convention."""
 
     @wraps(func)
     def validation_wrapper(*args, **kwargs):
-        """call __to_hdf__ and then perform the layout validation. Raise an error on failure"""
+        """Validate the completed file, honoring the configured error policy."""
         hdf_filename = func(*args, **kwargs)
 
         validate_layout(hdf_filename)
@@ -216,10 +214,12 @@ class UserDefinedHDF5Operation(Protocol):
 
 
 class PIVFile(abc.ABC):
-    """Abstract Interface class for PIV. This class must be inherited for each PIV file type.
-    Required methods are:
-        - read(recording_dtime: float, build_coord_datasets: bool = True)
-        - to_hdf(hdf_filename: pathlib.Path, recording_dtime: float)
+    """Base for format readers returning values, units and metadata as ``PIVData``.
+
+    Implement ``read(relative_time, **kwargs)`` and snapshot serialization through
+    ``to_hdf(...)``. ``parameter`` is a parameter object or path; None requests
+    format-specific discovery. ``udo`` accepts one callable or an ordered list,
+    run on the completed file by a public converter before postprocessing.
     """
     suffix: str = None
     __parameter_cls__ = PIVParameterInterface
@@ -333,7 +333,7 @@ class PIVConverter(abc.ABC):
                hdf_filename: pathlib.Path = None,
                z: float = None,
                **kwargs) -> pathlib.Path:
-        """conversion method
+        """Convert, run callbacks/statistics, validate, then publish the output.
 
         Parameters
         ----------
@@ -342,10 +342,18 @@ class PIVConverter(abc.ABC):
         hdf_filename: pathlib.Path
             Path to the HDF file to be written. None will generate an appropriate filename.
             If the path is a directory, the filename will be generated from the directory name.
-        z: float
-            z-coordinate of the plane. If None, the z-coordinate is read from the parameter file
+        z: float or str, optional
+            Position override: a number means metres; a quantity string such as
+            ``'5 mm'`` keeps its declared unit. None preserves the reader's value.
         kwargs: Dict
             Additional keyword arguments for the conversion method
+
+        Returns
+        -------
+        pathlib.Path
+            Final output path. Success replaces an existing destination; failure
+            preserves it. Metadata is local to this call. Validation runs only
+            when a convention is selected in ``set_config``.
         """
         if hdf_filename is not None:
             _hdf_filename = pathlib.Path(hdf_filename)
@@ -374,7 +382,11 @@ class PIVConverter(abc.ABC):
 
 
 class PIVSnapshot(PIVConverter):
-    """Interface class"""
+    """One processed PIV result with optional absolute recording datetime.
+
+    ``recording_dtime`` accepts a datetime or parseable date string. None omits
+    absolute time; relative time is zero. Use ``to_hdf`` to publish the result.
+    """
 
     def __init__(self,
                  piv_file: PIVFile,
@@ -433,7 +445,11 @@ class PIVSnapshot(PIVConverter):
 
 
 class PIVPlane(PIVConverter):
-    """Interface class"""
+    """Time series of at least two snapshots on one unchanged spatial grid.
+
+    Default component axes are ``(reltime, y, x)``. Supply recording times in the
+    same order as the readers; use ``from_folder`` for filename-sorted inputs.
+    """
 
     __slots__ = 'list_of_piv_files', 'rel_time_vector'
     plane_coord_order = ('reltime', 'y', 'x')
@@ -460,6 +476,12 @@ class PIVPlane(PIVConverter):
             1. A Tuple of datetime object specifying the start of the PIV recording and a float specifying the
             measurement frequency
             2. A list of datetime objects corresponding to the recording datetime of each image
+
+        Notes
+        -----
+        Frequency is the positive result sampling rate in Hz, not pulse delay.
+        Datetimes must increase. Too few timestamps are rejected; extras are
+        trimmed with a warning. Source recording times are not inferred.
         """
         super().__init__()
         if not isinstance(list_of_piv_files, (tuple, list)):
@@ -572,9 +594,14 @@ class PIVPlane(PIVConverter):
             be avoided by passing the parameter file explicitly here.
         n: int, default=-1
             Number of snapshot to take. Default value -1 means taking all found snapshots.
-        prefix_pattern: str, default=*[0-9]?
+        prefix_pattern: str, default=*[0-9]
             Pattern to match the snapshot files. Default is *[0-9]. The complete pattern is
             constructed as follows: prefix_pattern + pivfile.suffix
+        udo: callable or list of callables, optional
+            Output operations, passed through keyword arguments to each reader.
+            The plane uses the first reader's operations for its completed file.
+        **kwargs
+            Additional reader options, such as OpenPIV input units.
 
         Returns
         -------
@@ -771,7 +798,12 @@ class PIVPlane(PIVConverter):
 
 
 class PIVMultiPlane(PIVConverter):
-    """Interface class"""
+    """Combine compatible planes at distinct z positions.
+
+    Default component axes are ``(z, reltime, y, x)``. Separate acquisition times
+    are retained; a common relative-time index does not imply simultaneity.
+    Merging currently expects a component named ``u`` in each plane.
+    """
     __slots__ = 'list_of_piv_folder'
     plane_coord_order = ('z', 'reltime', 'y', 'x')
 
@@ -1182,7 +1214,7 @@ class PIVMultiPlane(PIVConverter):
                      ] = None,
                      n: int = -1,
                      **kwargs) -> "PIVMultiPlane":
-        """init PIVPlane from multiple folders
+        """Create one plane per folder, with one ``time_info`` entry per folder.
 
         Parameter
         ----------
@@ -1194,6 +1226,11 @@ class PIVMultiPlane(PIVConverter):
             PIVFile object
         n : int, default=-1
             number of snapshots to load. If n=-1, all snapshots are loaded
+
+        Notes
+        -----
+        This helper forwards ``udo`` and ``n``. Construct ``PIVPlane`` objects
+        separately when custom parameters or format-specific options are needed.
         """
         if user_defined_hdf5_operations is not None:
             warnings.warn(
@@ -1260,6 +1297,15 @@ class PIVMultiPlane(PIVConverter):
                z: float = None,
                atol: float = 1e-6,
                rtol: float = 1e-3, trim_time_vectors: bool = False) -> pathlib.Path:
+        """Merge planes and publish one HDF5 file.
+
+        ``z`` is an optional list of numeric metre values or quantity strings,
+        one per plane. Relative times must match within combined ``atol``
+        (seconds) and ``rtol`` tolerances. Approximate alignment uses a mean time
+        coordinate and preserves originals, without interpolating measurements.
+        Unequal lengths require explicit ``trim_time_vectors=True``; trailing
+        losses are recorded. ``piv_attributes`` may be an empty dictionary.
+        """
         return super().to_hdf(piv_attributes=piv_attributes,
                               hdf_filename=hdf_filename,
                               z=z,

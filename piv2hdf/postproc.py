@@ -9,6 +9,11 @@ def compute_time_averages(h5, *, averaging='sample'):
 
     Exclude nonfinite and invalid values. Duration weighting uses only intervals
     with two valid endpoints, without bridging gaps. Sample means are the default.
+
+    Pass a filename or an open h5rdmtoolbox File. Each selected velocity requires
+    its component standard name and one attached ``relative_time`` scale. Writes
+    ``mean_<component>`` and ``mean_<component>_valid_count`` with remaining scales.
+    A same-method existing mean is retained; different/unknown methods raise.
     """
     if averaging not in ('sample', 'duration'):
         raise ValueError('averaging must be sample or duration')

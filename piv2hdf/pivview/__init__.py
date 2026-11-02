@@ -9,6 +9,6 @@ config = {
     'attrs_unit_name': 'units',
     'compression': 'gzip',
     'compression_opts': 5,
-    'take_min_nt': True,  # False will fill datasets up with np.NA
+    'take_min_nt': True,  # Legacy key; merges use the explicit trim_time_vectors argument.
     'nc_as_time_averages_source': False,
 }

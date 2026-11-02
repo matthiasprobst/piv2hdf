@@ -24,7 +24,13 @@ def _compute_physical_quantity(data, offset, slope):
 
 
 class VC7File(PIVFile):
-    """Davis vc7 aka buffer file interface class"""
+    """Read a DaVis .vc7 file through optional lvpyio (Windows/Linux).
+
+    Parameter information defaults to the same file. Coordinate units and vendor
+    component names are preserved. Component slope/offset is applied once; raw
+    values and calibration metadata are retained. Pixel displacement is not
+    inferred to be a physical velocity.
+    """
     suffix = ".vc7"
     __parameter_cls__ = davis_parameter.DavisParameterFile
 

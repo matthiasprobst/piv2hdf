@@ -1,53 +1,49 @@
-# Dependency maintenance
+# Development and dependencies
 
-Updated 2026-11-01 for `2.0.0a3` on `fix/scientific-conversion-integrity`.
+Use an isolated **Python 3.9–3.11** environment. From the repository root:
 
-The package requires Python 3.9-3.11 and h5rdmtoolbox >=2.8.3,<3.0.0.
-Validation uses the bundled published standard-name table through a read-only
-rdflib index. The legacy ssnolib object parser and the unused pivmetalib dependency
-were removed; no migration to their next major API families is required.
-ontolutils >=0.27.5,<0.28.0 supplies unit identifiers; rdflib >=7.1,<8.0 parses
-the table. These direct requirements match `setup.cfg` and `requirements.txt`.
-Keep development installations isolated from unrelated workspace environments.
+```shell
+python -m pip install -e ".[test]"
+python -m pytest -q
+```
 
-| File | Before | After |
-| --- | --- | --- |
-| setup.cfg | `h5rdmtoolbox>=2.2.0,<3.0.0` | `h5rdmtoolbox>=2.8.3,<3.0.0` |
-| requirements.txt | `h5rdmtoolbox>=2.2.0,<3.0.0` | `h5rdmtoolbox>=2.8.3,<3.0.0` |
+For DaVis coverage on Windows/Linux, install `python -m pip install -e ".[test,davis]"`.
+Without `lvpyio`, the DaVis-specific tests are not exercised. CI uses
+`requirements-dev.txt` on Windows/Linux and `requirements-dev-macos.txt` on macOS.
 
-Dependencies on related packages must exclude the next major release.
-Retain tighter existing pins unless an upgrade is deliberate and verified.
-Pre-1.0 API changes can also require a minor-version ceiling.
-Self-references that compose extras are exempt.
+Useful checks:
 
-For future work: inspect status, create a task branch before editing, preserve
-existing changes, stage explicit paths, inspect the staged diff, run appropriate
-checks, and commit on that branch. Keep this record, README, and duplicated
-requirements in sync. Ask for explicit approval before starting subagents.
+```shell
+python -m pytest tests/test_scientific_integrity.py -q
+python -m pytest --cov --cov-report=xml
+python -m pip install build
+python -m build
+```
 
-The workspace coordination repository contains the complete inventory and
-repeatable checks in `docs/dependency-audit.md` and
-`tools/audit_dependencies.py`. The audit covers manifests and emitted package
-metadata; version ranges alone are not a runtime compatibility guarantee.
+These run the scientific regressions, generate a coverage report, and build
+distributions in `dist/`. Do not use `.build.bat` for a local check: it also uploads
+distributions. CI covers Python 3.9–3.11 on Windows, Linux and macOS; DaVis is
+unavailable on macOS. No minimum coverage percentage is configured.
 
-## Verification history
+## Dependency policy
 
-The scientific implementation is tested with the adjacent editable h5RDMtoolbox
-2.8.3 checkout. Install that checkout first when testing this workspace baseline:
-`python -m pip install -e ../h5RDMtoolbox`, then install this project's development
-requirements. Local checkout results do not certify a published artifact or every
-dependency combination permitted by the bounds. See `MIGRATION.md` for changed
-scientific and configuration contracts.
+`setup.cfg` is the package manifest; keep duplicated bounds in `requirements.txt`
+in sync. The current integration targets `h5rdmtoolbox>=2.8.3,<3.0.0`,
+`ontolutils>=0.27.5,<0.28.0`, and `rdflib>=7.1,<8.0`. The default standard-name
+table is bundled; its read-only validator does not require ssnolib or pivmetalib.
+Keep next-major ceilings on related packages and verify deliberate upgrades.
 
-The following audit predates the 2.0.0a3 implementation:
+To test a local toolbox change, install its checkout first, for example
+`python -m pip install -e ../h5RDMtoolbox`, then install this project. Check the
+actual imported version and path; a local pass does not certify every version in
+the permitted range. `tests/test_version.py` checks consistency between installed
+metadata, `setup.cfg`, `CITATION.cff`, and `codemeta.json`.
 
-Workspace manifest audit: 14 folders, 39 manifests, 40 cross-package
-requirements checked; all related dependencies exclude their next major.
-All h5rdmtoolbox requirements accept 2.8.3 and reject 3.0.0.
+## Contribution workflow
 
-Setuptools emitted package metadata successfully in a temporary metadata-only
-scaffold using the actual manifests. Related Requires-Dist bounds passed.
-This verifies dependency metadata rather than building or installing the package.
-
-Broad application suites and a full online dependency resolution were not run.
-These checks do not certify every release in the permitted version ranges.
+Create a new task branch before edits and preserve existing work. Add meaningful
+regressions for changed scientific behavior, run relevant checks, review explicit
+staged paths, and commit on that branch. Ask before delegating to subagents.
+Keep local investigation notes and generated evidence in `.work/`; it is ignored
+and must not be committed or force-added. Update [usage](docs/usage.md) and
+[migration notes](MIGRATION.md) when public behavior changes.
