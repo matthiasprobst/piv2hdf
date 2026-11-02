@@ -39,10 +39,14 @@ class OpenPIVResultData(PIVFile):
 
 
 class OpenPIVFile(PIVFile):
-    """Open PIV File interface class
+    """Read the supported tab-separated rectangular OpenPIV result layout.
 
-    Note, that .txt file from openPIV will not have all datasets, when ou use the openPIV.tools.save()
-    method.
+    Rows are ordered by y then x with columns ``# x``, ``y`` and velocity fields.
+    Defaults assume pixel coordinates, scaling_factor in pixel/m and saved
+    velocities in m/s. Declare ``coordinate_units``, ``scaling_factor_units`` and
+    ``velocity_units`` when different. Velocities must already be physical;
+    pulse delay is not used to infer them. Physical coordinates are not rescaled.
+    A parameter file or object is required; ``parameter=None`` discovers a file.
     """
     suffix: str = '.txt'
     __parameter_cls__ = OpenPIVParameterFile

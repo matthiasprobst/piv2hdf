@@ -14,7 +14,7 @@ CONFIG = dict(
     compression='gzip',
     compression_opts=5,
     convention=None,
-    take_min_nt=True,  # False will fill datasets up with np.NA
+    take_min_nt=True,  # Legacy key; merges use the explicit trim_time_vectors argument.
     raise_layout_validation_error=True,
     dtypes={'x': 'float32',
             'y': 'float32',
@@ -60,14 +60,11 @@ class _Setter:
 
 
 class PIVAttrsSetter(_Setter):
-    """Set the piv attributes. PIV attributes are written to the
-    root group of the hdf file.
+    """Set default root attributes, optionally scoped by a ``with`` block.
 
-    Mandatory piv attributes are:
-    - contact: str
-        The orcid must be used, e.g. 'https://orcid.org/0000-0001-8729-0482'
-    - piv_medium: str
-        E.g. air, water, etc.
+    Conversion-specific attributes override these defaults without changing them.
+    Required metadata depends on the selected convention: ``planar_piv`` requires
+    a creator mapping with ``name``; contact and camera metadata are optional.
     """
 
     def __init__(self):
@@ -114,7 +111,7 @@ class _PivAttrsContext(_Setter):
 
 
 def get_pivattrs() -> Dict:
-    """Return the piv attributes."""
+    """Return an independent copy of the default root attributes."""
     return deepcopy(PIV_ATTRS)
 
 
@@ -124,7 +121,13 @@ def reset_pivattrs():
 
 
 class set_config(_Setter):
-    """Set the configuration parameters."""
+    """Set package defaults; a ``with`` block restores prior settings on exit.
+
+    Supports compression, coordinate dtypes, output postprocessors and convention
+    validation. PIVview masking/interpolation instead use ``pivview.config``.
+    ``postproc=[]`` disables automatic statistics; entries may be registered names
+    or callables. Options are snapshotted for each public conversion.
+    """
 
     def __init__(self, **kwargs):
         self.old = _copy_config(CONFIG)
@@ -158,7 +161,10 @@ class set_config(_Setter):
 
 
 def get_config(key=None):
-    """Return the configuration parameters."""
+    """Return a setting or copied settings mapping; use ``set_config`` to modify.
+
+    Convention objects retain their identity. Mutable option containers are copied.
+    """
     if key is None:
         return _copy_config(_conversion_config.get() or CONFIG)
     value = (_conversion_config.get() or CONFIG)[key]

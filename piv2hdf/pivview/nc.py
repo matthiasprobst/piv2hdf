@@ -78,23 +78,20 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
     ----------
     nc_file : Path
         path to nc file
-    interpolate : bool, optional=True
-        Use space interpolation (linear) in each timeframe to patch holes
-        left out after masking.
-    masking : str, optional='sepeaks'
-        Masking mode from piv flags. Can be slack or sepeaks or strict.
-            strict: only uses true good values
-            slack: also uses interpolated values.
-            sepeaks: uses strict and second corr. peaks.
-        The default is 'sepeaks'.
+    interpolate : bool
+        Linearly fill masked holes within the valid points' convex hull. Outside
+        that hull, or with insufficient donors, holes remain NaN. Raw fields and
+        original flags are retained separately.
+    masking : str
+        Required mode: strict accepts ACTIVE; sepeaks also accepts REPLACED;
+        slack also accepts FILTERED, INTERPOLATED and MANUALEDIT. Invalid and
+        unknown bits are rejected. The reader's module-level default is slack.
     timestep : float
-        Time step in [s] relative to measurement start. If astropy-quantity
-        is passed, unit is taken from there.
-    time_unit : str, optional='s'
-        unit taken for time if time was not of type astropy.quantity.
+        Relative recording time, expressed in ``time_unit``.
+    time_unit : str, default='s'
+        Time unit understood by Pint; the numeric timestep is not converted.
     z_source: str or tuple, optional='coord_min'
-        The z-location can be specified manually by passing an astropy quantity
-        or a list/tuple in form  (value: float, unit: str).
+        A list/tuple ``(value, unit)`` or xarray DataArray can supply z manually.
         It is also possible to detect the z-location from the nc-file (experience shows
         that this was not always correctly set by the experimenter...). Alternative,
         the z-location is tried to determine by the file name.
@@ -104,20 +101,20 @@ def process_pivview_nc_data(nc_file: pathlib.Path, interpolate: bool,
             * 'coord_max'
             * 'origin_offset'
             * 'file'
-    compute_dwdz: bool, optional=False
-        Computing the out-of-plane gradient dwdz evaluating the continuity equation.
-        Only valid for incompressible flows!!!
+    compute_dwdz: bool, default=False
+        For stereo data, derive dwdz from in-plane gradients by incompressible
+        continuity. This requires dudx and dvdy; applicability to the experiment
+        must be established separately. The assumption is recorded in metadata.
     build_coord_datasets: bool, optional=True
-        Whether to generate x,y,z,t datasets. For single snapshot HDF built this should
-        be set True. For plane or case generation except the first snapshot, this can be
-        set to False and thus reduce computation time.
+        Include spatial and pixel coordinates. Keep True for data passed to the
+        normal snapshot/plane writers. Relative time is included in either case.
 
     Returns
     -------
     piv_data_array_dict : dict
         Dictionary containing the arrays
     nc_root_attributes : dict
-        Attribute dictionary of root variables
+        Selected source root metadata (content, creation date and software)
     variable_attributes : dict
         Attribute dictionary of dataset variables
 
@@ -424,7 +421,10 @@ class PIVViewNcFile(PIVFile):
 
 
 class PIVViewStereoNcFile(PIVViewNcFile):
-    """Interface class to a PIVview netCDF4 file for stereo recordings. Stereo
-    recordings uses different configuration files (.cfg)"""
+    """Read PIVview stereo 2D3C results using a .cfg parameter file.
+
+    Three velocity components are measured on a plane, not throughout a volume.
+    Reading and masking options are shared with ``PIVViewNcFile``.
+    """
     __suffix__ = '.nc'
     __parameter_cls__ = pivview_parameter.PivViewConfigFile
