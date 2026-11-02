@@ -171,6 +171,9 @@ def test_irregular_sampling_estimators(tmp_path, method, expected):
         compute_time_averages(output, averaging=method)
         assert output['mean_u'].values[0] == pytest.approx(expected)
         assert output['mean_u_valid_count'].values[0] == 3
+        if method == 'sample':
+            with pytest.raises(ValueError, match='averaging method'):
+                compute_time_averages(output, averaging='duration')
 
 
 def test_means_exclude_flagged_values_and_report_empty_samples(tmp_path):
@@ -234,6 +237,16 @@ def test_recursive_validation_and_warning_policy(tmp_path):
         with config.set_config(raise_layout_validation_error=False):
             with pytest.warns(LayoutValidationWarning, match='missing_units'):
                 assert validate_layout(filename)
+
+
+def test_unknown_units_follow_validation_warning_policy(tmp_path):
+    filename = tmp_path/'bad-units.hdf'
+    with h5tbx.File(filename, 'w', attrs={'standard_name_table': TABLE_URL, 'creator': {'name': 'Test'}}) as output:
+        output.create_dataset('u', data=[1.], attrs={'standard_name': 'x_velocity',
+                                                   'units': 'unknown_scientific_unit', 'long_name': 'velocity'})
+    with config.set_config(convention='planar_piv', raise_layout_validation_error=False):
+        with pytest.warns(LayoutValidationWarning, match='unknown_scientific_unit'):
+            assert validate_layout(filename)
 
 
 def plane_file(tmp_path, name, *, units='m', z=0., spacing=1., nt=2):

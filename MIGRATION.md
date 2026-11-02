@@ -41,6 +41,16 @@ Means exclude invalid and nonfinite samples and expose `mean_*_valid_count`.
 Sample arithmetic means remain the default even with irregular sampling.
 `averaging='duration'` uses trapezoidal integration over valid adjacent endpoints;
 it neither imputes gaps nor supplies a measurement uncertainty estimate.
+An existing mean with a different or unknown averaging method is rejected instead
+of silently reused. To select duration weighting during conversion, pass a callable:
+
+```python
+from functools import partial
+from piv2hdf import set_config
+from piv2hdf.postproc import compute_time_averages
+
+set_config(postproc=[partial(compute_time_averages, averaging='duration')])
+```
 
 ## Merging and metadata
 

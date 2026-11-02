@@ -7,6 +7,7 @@ from urllib.request import urlopen
 import rdflib
 from h5rdmtoolbox import get_ureg
 from ontolutils.utils.qudt_units import qudt_lookup
+from pint.errors import PintError
 
 TABLE_URL = 'https://zenodo.org/records/15297431/files/Standard_Name_Table_for_Particle_Image_Velocimetry.jsonld'
 TABLE_FILE = Path(__file__).parent / 'resources/convention/piv_standard_names.jsonld'
@@ -20,7 +21,10 @@ def unit_quantity(units):
         if str(units) not in _UNIT_SYMBOLS:
             raise ValueError(f'Unknown unit IRI: {units}')
         units = _UNIT_SYMBOLS[str(units)] or ''
-    return get_ureg().Quantity(1, str(units).strip())
+    try:
+        return get_ureg().Quantity(1, str(units).strip())
+    except PintError as error:
+        raise ValueError(f'Invalid units: {units}') from error
 
 
 def table_key(value):

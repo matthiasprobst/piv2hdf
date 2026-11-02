@@ -31,6 +31,9 @@ def compute_time_averages(h5, *, averaging='sample'):
         t = validate_relative_time(h5py.Dataset.__getitem__(time, slice(None)))
         mean_name = f'mean_{ds.basename}'
         if mean_name in ds.parent:
+            existing = ds.parent[mean_name]
+            if existing.attrs.get('averaging_method') != averaging:
+                raise ValueError(f'{existing.name} already exists with a different or unknown averaging method')
             continue
         shape = ds.shape[:axis] + ds.shape[axis + 1:]
         total = np.zeros(shape, dtype=np.float64)
